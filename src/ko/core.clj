@@ -17,9 +17,10 @@
    :env (:env event)))
 
 (defn- schedule-measure [measure next-bar-beat]
-  (doseq [[quant event] measure]
+  (doseq [[quant events] (partition 2 measure)]
     (let [beat (quant-to-beat-in-bar quant next-bar-beat)]
-      (at (nome beat) (play-event event)))))
+      (prn beat)
+      (at (nome beat) (doseq [event events] play-event event)))))
 
 (defn- schedule-cycle [measures]
   (let [next-measure (first measures)
@@ -37,3 +38,13 @@
 (defn play-score [score]
   (nome :bpm (:bpm score))
   (schedule-cycle (:measures score)))
+
+(def score
+  {:bpm 116
+   :measures [[1.0 [{:instr foo
+                     :freq 220
+                     :amp 0.5
+                     :env (envelope [0 0.5 0] [0.2 0.2])}]]
+              ]})
+
+(play-score score)
