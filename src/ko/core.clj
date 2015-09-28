@@ -2,8 +2,8 @@
   [:use [overtone.core]]
   (:gen-class))
 
-(defsynth sin-synth [amp 1 freq 200 outbus 0]
-  (out outbus (* amp (sin-osc freq 0))))
+(defsynth sin-synth [amp 1 freq 440 outbus 0]
+  (out outbus (* amp (sin-osc freq))))
 
 (def nome (metronome 120))
 
@@ -13,20 +13,20 @@
 (defn- play-event [event]
   ((:instr event)
    :freq (:freq event)
-   :amp (:amp event)
-   :env (:env event)))
+   :amp (:amp event)))
 
 (defn- schedule-measure [measure next-bar-beat]
   (doseq [[quant events] (partition 2 measure)]
     (let [beat (quant-to-beat-in-bar quant next-bar-beat)]
-      (prn beat)
-      (at (nome beat) (doseq [event events] play-event event)))))
+      (at (nome beat)
+          (doseq [event events]
+            (play-event event))))))
 
 (defn- schedule-cycle [measures]
   (let [next-measure (first measures)
         remaining-measures (rest measures)
         ;; measures are scheduled one beat before they begin
-        next-bar-beat (metro-bar nome)
+        next-bar-beat (* 4 (metro-bar nome))
         next-cycle-timestamp (nome (+ 3 next-bar-beat))]
 
     (schedule-measure next-measure next-bar-beat)
@@ -41,10 +41,10 @@
 
 (def score
   {:bpm 116
-   :measures [[1.0 [{:instr foo
-                     :freq 220
-                     :amp 0.5
-                     :env (envelope [0 0.5 0] [0.2 0.2])}]]
+   :measures [[1.0 [{:instr sin-synth
+                     :freq 440
+                     :amp 1
+                     :outbus 0}]]
               ]})
 
 (play-score score)
