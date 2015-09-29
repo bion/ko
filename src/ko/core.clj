@@ -3,7 +3,9 @@
   (:gen-class))
 
 (defsynth sin-synth [amp 1 freq 440 outbus 0]
-  (out outbus (* amp (sin-osc freq))))
+  (out outbus (* amp
+                 (sin-osc freq)
+                 (env-gen:kr (envelope [0 1 0] [0.01 0.3] [-1 -1]) :action 2))))
 
 (def nome (metronome 120))
 
@@ -33,18 +35,29 @@
 
     (apply-by next-cycle-timestamp
               #'schedule-cycle
-              remaining-measures)))
+              [remaining-measures])))
 
 (defn play-score [score]
   (nome :bpm (:bpm score))
   (schedule-cycle (:measures score)))
 
+(defn sin-blip [freq]
+  {:instr sin-synth
+   :freq freq
+   :amp 1
+   :outbus 0})
+
 (def score
   {:bpm 116
-   :measures [[1.0 [{:instr sin-synth
-                     :freq 440
-                     :amp 1
-                     :outbus 0}]]
+   :measures [[1.0 [(sin-blip 440)]
+               2.0 [(sin-blip 220)]
+               3.0 [(sin-blip 220)]
+               4.0 [(sin-blip 220)]]
+
+              [1.0 [(sin-blip 440)]
+               2.0 [(sin-blip 220)]
+               3.0 [(sin-blip 220)]
+               4.0 [(sin-blip 220)]]
               ]})
 
 (play-score score)
