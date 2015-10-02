@@ -49,5 +49,4 @@
   {1.25 [{:name "chords"
           :env {:attr :note :val :gliss}
           :note [:G3 :maj7
-                 :F4 :min7]}]}]
- ]
+                 :F4 :min7]}]}]]
