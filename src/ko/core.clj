@@ -68,23 +68,27 @@
 
 (defn sin-gliss [name freq]
   #(swap! running-synths
-            assoc name (play-event
-                        {:instr sin-synth
-                         :freq freq
-                         :amp 0.1
-                         :action 0})))
+          assoc name (play-event
+                      {:instr sin-synth
+                       :freq freq
+                       :amp 0.1
+                       :action 0})))
 
-(defn adjust [name & rest]
+(defn adjust
+  "Send control messages to a running synth.
+  Messages are specified as alternating argument key value pairs"
+  [name & rest]
   #(let [target (@running-synths name)]
-     (doseq [[key value] (partition 2 rest)]
-       (apply ctl (conj rest target)))))
+     (apply ctl (conj rest target))))
 
-(defn finish [& rest]
-  #(do
-     (prn @running-synths)
-     (prn "beats-per-bar: " beats-per-bar)
-     (prn (apply juxt rest) @running-synths)
-     (kill ((apply juxt rest) @running-synths))))
+(defn finish
+  "Kill synth nodes and remove from `running-synths` atom"
+  [& synth-names]
+  #(let [synths-to-kill ((apply juxt synth-names) @running-synths)]
+     (kill synths-to-kill)
+     (swap! running-synths
+            (fn [running-synths-val]
+              (apply dissoc (into [running-synths-val] synth-names))))))
 
 (def score
   {:bpm 120
@@ -107,7 +111,14 @@
 
               [1.0 [(finish :one)]]]})
 
+;; TODO
+;; instead of holding onto running synths, hold on to running procsses
+;; processes will have their own means of cleaning things up, updating
+;; when asked to instead of play-event, adjust, and finish directly
+;; interacting with nodes
+
 (play-score changing-gesture)
 (boot-server)
 (play-score score)
 (stop)
+running-synths
