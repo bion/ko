@@ -1,16 +1,16 @@
 (ns ko.core
-  [:use [overtone.core]]
+  [:require [overtone.core :as ot]]
   (:gen-class))
 
-(defsynth sin-synth [amp 1 freq 440 outbus 0 action 2]
-  (out outbus
-       (* amp
-          (sin-osc freq)
-          (env-gen:kr
-           (envelope [0 1 1]
-                     [0.01 0.3]
-                     [-1 -1])
-           :action action))))
+(ot/defsynth sin-synth [amp 1 freq 440 outbus 0 action 2]
+  (ot/out outbus
+          (* amp
+             (ot/sin-osc freq)
+             (ot/env-gen:kr
+              (ot/envelope [0 1 1]
+                           [0.01 0.3]
+                           [-1 -1])
+              :action action))))
 
 (def beats-per-bar 4)
 (def beats-per-minute 120)
@@ -34,8 +34,8 @@
 (defn- schedule-measure [measure next-bar-timestamp]
   (doseq [[quant events] (partition 2 measure)]
     (let [timestamp (quant-to-timestamp quant next-bar-timestamp (calc-beat-dur))]
-      (at timestamp
-          (doseq [event events] (event))))))
+      (ot/at timestamp
+             (doseq [event events] (event))))))
 
 ;; measures are scheduled one beat before they begin
 (defn- schedule-cycle [measures current-time]
@@ -48,12 +48,12 @@
     (schedule-measure next-measure next-bar-timestamp)
 
     (if-not (empty? remaining-measures)
-      (apply-at next-cycle-timestamp
-                schedule-cycle
-                [remaining-measures next-cycle-timestamp]))))
+      (ot/apply-at next-cycle-timestamp
+                   schedule-cycle
+                   [remaining-measures next-cycle-timestamp]))))
 
 (defn play-score [score]
-  (schedule-cycle (:measures score) (now)))
+  (schedule-cycle (:measures score) (ot/now)))
 
 (defn- play-event [event]
   ((:instr event)
@@ -79,13 +79,13 @@
   Messages are specified as alternating argument key value pairs"
   [name & rest]
   #(let [target (@running-synths name)]
-     (apply ctl (conj rest target))))
+     (apply ot/ctl (conj rest target))))
 
 (defn finish
   "Kill synth nodes and remove from `running-synths` atom"
   [& synth-names]
   #(let [synths-to-kill ((apply juxt synth-names) @running-synths)]
-     (kill synths-to-kill)
+     (ot/kill synths-to-kill)
      (swap! running-synths
             (fn [running-synths-val]
               (apply dissoc (into [running-synths-val] synth-names))))))
@@ -118,7 +118,6 @@
 ;; interacting with nodes
 
 (play-score changing-gesture)
-(boot-server)
+(ot/boot-server)
 (play-score score)
-(stop)
-running-synths
+(ot/stop)
