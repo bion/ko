@@ -22,14 +22,20 @@
      (* (- quant 1)
         (calc-beat-dur-ms))))
 
-(defn- schedule-measure [measure next-bar-timestamp]
+(defn- schedule-measure
+  "Each measure is a vector containing paired quant (decimal beat)
+  and gesture data. Schedule measure's gesture's at their corresponding quant."
+  [measure next-bar-timestamp]
   (doseq [[quant events] (partition 2 measure)]
     (let [timestamp (quant-to-timestamp quant next-bar-timestamp (calc-beat-dur))]
       (ot/at timestamp
              (doseq [event events] (event))))))
 
-;; measures are scheduled one beat before they begin
-(defn- schedule-cycle [measures current-time]
+(defn schedule-cycle
+  "Implements the temporal recursion pattern (see `(doc apply-at`)). Recurses
+  through provided sequence of measures, scheduling each one beat before it begins
+  until all of have been scheduled."
+  [measures current-time]
   (let [next-measure (first measures)
         remaining-measures (rest measures)
         beat-dur-ms (calc-beat-dur-ms)
@@ -42,9 +48,6 @@
       (ot/apply-at next-cycle-timestamp
                    schedule-cycle
                    [remaining-measures next-cycle-timestamp]))))
-
-(defn play-score [score]
-  (schedule-cycle (:measures score) (ot/now)))
 
 (defn- play-event [event]
   ((:instr event)
@@ -67,3 +70,6 @@
      (swap! running-synths
             (fn [running-synths-val]
               (apply dissoc (into [running-synths-val] synth-names))))))
+
+(defn play-score [score]
+  (schedule-cycle (:measures score) (ot/now)))
