@@ -10,3 +10,10 @@
       (g-start [this] [this spec] "Start playing the gesture.")
       (g-ctl [this spec] "Control the gesture while it's playing.")
       (g-kill [this] [this time] "Kill related synths and clean up the gesture."))))
+
+;; macro time
+(defn- play-event [event]
+  ((:instr event)
+   :freq (:freq event)
+   :amp (:amp event)
+   :action (:action event)))

@@ -49,12 +49,6 @@
                    schedule-cycle
                    [remaining-measures next-cycle-timestamp]))))
 
-(defn- play-event [event]
-  ((:instr event)
-   :freq (:freq event)
-   :amp (:amp event)
-   :action (:action event)))
-
 (defn adjust
   "Send control messages to a running synth.
   Messages are specified as alternating argument key value pairs"
