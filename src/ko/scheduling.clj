@@ -1,11 +1,11 @@
 (ns ko.scheduling
   [:require [overtone.core :as ot]]
+  [:use [ko.gesture]]
   (:gen-class))
-
 
 (def beats-per-bar 4)
 (def beats-per-minute 120)
-(def running-synths (atom {}))
+(def living-gestures-map-atom (atom {}))
 
 (defn calc-beat-dur []
   (/ 60.0 beats-per-minute))
@@ -49,21 +49,24 @@
                    schedule-cycle
                    [remaining-measures next-cycle-timestamp]))))
 
+(defn begin
+  "Send start message to a gesture"
+  [gesture]
+  #(g-start gesture living-gestures-map-atom))
+
 (defn adjust
-  "Send control messages to a running synth.
+  "Send control messages to a running gesture.
   Messages are specified as alternating argument key value pairs"
-  [name & rest]
-  #(let [target (@running-synths name)]
-     (apply ot/ctl (conj rest target))))
+  [g-name & rest]
+  #(let [gesture (@living-gestures-map-atom g-name)]
+     (g-ctl gesture rest)))
 
 (defn finish
-  "Kill synth nodes and remove from `running-synths` atom"
-  [& synth-names]
-  #(let [synths-to-kill ((apply juxt synth-names) @running-synths)]
-     (ot/kill synths-to-kill)
-     (swap! running-synths
-            (fn [running-synths-val]
-              (apply dissoc (into [running-synths-val] synth-names))))))
+  "Send end message to gestures and remove from `living-gestures-map-atom`"
+  [& names]
+  #(let [gestures ((apply juxt names) @living-gestures-map-atom)]
+     (doseq [gesture-to-end gestures]
+       (g-end gesture-to-end living-gestures-map-atom))))
 
 (defn play-score [score]
   (schedule-cycle (:measures score) (ot/now)))
