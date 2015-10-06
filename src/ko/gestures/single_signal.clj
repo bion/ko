@@ -3,31 +3,28 @@
    [ko.synth_defs.single_signal]
    [ko.gesture]
    [ko.scheduling]]
+  [:require
+   [overtone.core :as ot]]
   (:gen-class))
 
-(defn sin-blip [freq]
-  #(play-event {:instr sin-synth
-                :freq freq
-                :amp 0.1}))
+(deftype SingleSynthGesture [g-name spec node-vec-atom]
+  IGesture
+  (g-nodes [this] @node-vec-atom)
 
-(defn sin-gliss [name freq]
-  #(swap! running-synths
-          assoc name (play-event
-                      {:instr sin-synth
-                       :freq freq
-                       :amp 0.1
-                       :action 0})))
+  (g-start [this]
+    (let [synth-args (flatten (into [] (dissoc spec :instr)))
+          synth-id (apply (:instr spec) synth-args)]
+      (swap! node-vec-atom conj synth-id)))
 
-;; (deftype SinGliss [one two]
-;;   IGesture
-;;   (g-prepare [this])
-;;   (g-start [this]))
+  (g-ctl [this & specs]
+    (let [target (@node-vec-atom g-name)]
+      (apply ot/ctl (conj specs target))))
 
-(defn sin-gliss [name freq]
-  {:g-start (play-event
-             {:instr sin-synth
-              :freq freq
-              :amp 0.1
-              :action 0})
-   :g-kill #(kill (:synths %))
-   :g-ctl (fn [k v] (ctl (:synths %) k v))})
+  (g-end [this gesture-map-atom]
+    (let [target (g-nodes this)]
+      (ot/kill target)
+      (remove-from-atom-map gesture-map-atom g-name))))
+
+(defn ssg [g-name spec gesture-map-atom]
+  (let [g-instance (BasicGesture. g-name spec (atom []))]
+    (swap! gesture-map-atom #(assoc % g-name g-instance))))
