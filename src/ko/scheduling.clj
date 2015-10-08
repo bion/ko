@@ -49,22 +49,26 @@
                    schedule-cycle
                    [remaining-measures next-cycle-timestamp]))))
 
-(defn begin
+(defmacro begin
   "Send start message to a gesture"
   [gesture]
-  #(g-start gesture living-gestures-map-atom))
+  `(fn []
+     (prn ~(str "begin " (second gesture)))
+     (g-start ~(concat gesture '(living-gestures-map-atom)))))
 
 (defn adjust
   "Send control messages to a running gesture.
   Messages are specified as alternating argument key value pairs"
   [g-name & rest]
   #(let [gesture (@living-gestures-map-atom g-name)]
+     (prn (str "adjust " g-name))
      (g-ctl gesture rest)))
 
 (defn finish
   "Send end message to gestures and remove from `living-gestures-map-atom`"
   [& names]
   #(let [gestures ((apply juxt names) @living-gestures-map-atom)]
+     (prn (apply str (concat ["finish "] names)))
      (doseq [gesture-to-end gestures]
        (g-end gesture-to-end living-gestures-map-atom))))
 

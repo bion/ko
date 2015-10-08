@@ -1,37 +1,19 @@
 (ns ko.core
   [:use
    [ko.scheduling]
+   [ko.synth_defs.single_signal]
    [ko.gestures.single_signal]]
   (:gen-class))
-
-(def score
-  {:bpm 120
-   :bpb 3
-   :measures [[1.0 [(sin-blip 440)]
-               2.0 [(sin-blip 220)]
-               3.0 [(sin-blip 220)]]
-
-              [1.0 [(sin-blip 440)]
-               2.0 [(sin-blip 220)]
-               3.0 [(sin-blip 220)]]]})
 
 (def changing-gesture
   {:bpm 160
    :bpb 4
-   :measures [[1.0 [(sin-gliss :one 440)]
-               2.0 [(adjust :one :freq 880)]
-               3.0 [(adjust :one :freq 220)]
-               4.0 [(adjust :one :freq 440)]]
-
+   :measures [[1.0 [(begin (ssg :one {:instr sin-synth :freq 200 :amp 1 :action 0}))]
+               2.0 [(adjust :one :freq 880 :amp 0.1)]
+               3.0 [(adjust :one :freq 220 :amp 0.25)]
+               4.0 [(adjust :one :freq 440 :amp 1)]]
               [1.0 [(finish :one)]]]})
 
-;; TODO
-;; instead of holding onto running synths, hold on to running procsses
-;; processes will have their own means of cleaning things up, updating
-;; when asked to instead of play-event, adjust, and finish directly
-;; interacting with nodes
-
 (play-score changing-gesture)
-(ot/boot-server)
-(play-score score)
-(ot/stop)
+(overtone.core/stop)
+(overtone.core/boot-server)

@@ -7,31 +7,29 @@
    [overtone.core :as ot]]
   (:gen-class))
 
-(deftype SingleSynthGesture [g-name spec node-vec-atom]
+(deftype GSingleSynth [g-name spec node-vec-atom]
   IGesture
   (g-nodes [this] @node-vec-atom)
+  (get-g-name [this] g-name)
 
-  (g-start [this gesture-map-atom]
+  (g-start [this]
     (let [synth-args (flatten (into [] (dissoc spec :instr)))
           synth-id (apply (:instr spec) synth-args)]
-      (swap! node-vec-atom conj synth-id)
-      (swap! gesture-map-atom assoc g-name this)))
+      (swap! node-vec-atom conj synth-id)))
 
   (g-ctl [this spec]
-    (let [target (@node-vec-atom g-name)]
-      (apply ot/ctl (conj spec target))))
+    (apply ot/ctl (apply conj @node-vec-atom spec)))
 
   (g-end [this gesture-map-atom]
-    (let [target (g-nodes this)]
-      (ot/kill target)
+    (do
+      (prn (str "killing" @node-vec-atom))
+      (ot/kill @node-vec-atom)
+      (prn (str "killed" @node-vec-atom))
       (remove-from-atom-map gesture-map-atom g-name))))
 
 (defn ssg [g-name spec gesture-map-atom]
-  (let [g-instance (BasicGesture. g-name spec (atom []))]
-    (swap! gesture-map-atom #(assoc % g-name g-instance))))
-
-(apply zipmap (reduce (fn [acc next]
-          [(conj (first acc) (first next))
-           (conj (second acc) (second next))])
-        [[] []]
-        (partition 2 [:one 2 :three 4])))
+  (if (nil? (:instr spec))
+    (throw (Exception. (str "no instr specified in `ssg` with `spec`:" spec)))
+    (let [g-instance (GSingleSynth. g-name spec (atom []))]
+      (swap! gesture-map-atom #(assoc % g-name g-instance))
+      g-instance)))
