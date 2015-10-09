@@ -20,12 +20,7 @@
   (g-ctl [this spec]
     (apply ot/ctl (apply conj @node-vec-atom spec)))
 
-  (g-end [this gesture-map-atom]
-    (do
-      (prn (str "killing" @node-vec-atom))
-      (ot/kill @node-vec-atom)
-      (prn (str "killed" @node-vec-atom))
-      (remove-from-atom-map gesture-map-atom g-name))))
+  (g-end [this] @node-vec-atom)
 
 (defn ssg [g-name spec gesture-map-atom]
   (if (nil? (:instr spec))

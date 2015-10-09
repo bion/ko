@@ -3,6 +3,11 @@
   [:use [ko.gesture]]
   (:gen-class))
 
+(defn remove-from-atom-mapq [atom-map k]
+  (swap! atom-map
+         (fn [atom-map-val]
+           (apply dissoc (into [atom-map-val] k)))))
+
 (def beats-per-bar 4)
 (def beats-per-minute 120)
 (def living-gestures-map-atom (atom {}))
@@ -70,7 +75,8 @@
   #(let [gestures ((apply juxt names) @living-gestures-map-atom)]
      (prn (apply str (concat ["finish "] names)))
      (doseq [gesture-to-end gestures]
-       (g-end gesture-to-end living-gestures-map-atom))))
+       (remove-from-atom-map gesture-map-atom g-name)
+       (ot/kill (g-end gesture-to-end)))))
 
 (defn play-score [score]
   (schedule-cycle (:measures score) (ot/now)))

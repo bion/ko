@@ -2,11 +2,6 @@
   [:use [overtone.core]]
   (:gen-class))
 
-(defn remove-from-atom-map [atom-map k]
-  (swap! atom-map
-         (fn [atom-map-val]
-           (apply dissoc (into [atom-map-val] k)))))
-
 (defonce ^{:doc "Protect gesture protocol against namespace reloads"}
   _GESTURE_PROTOCOL_
   (do
