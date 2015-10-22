@@ -33,7 +33,7 @@
          1 [(+ 1 1)
             2]
          silent) => [ [1 [2 2]]
-                      [-1 []] ] ))
+                      [0 []] ] ))
 
 (comment
   (read-score
@@ -41,8 +41,8 @@
    set-beats-per-bar 4
    set-beats-per-minute 108
 
-   1 [(begin (ssg :my-gesture-name {:freq 200}))
-      ((begin (ssg :other-gesture-name {:freq 400})))]
+   1 [(begin :other-gesture-name (ssg {:freq 200}))
+      ((begin :other-gesture-name (ssg {:freq 400})))]
    3 [(! {:name :my-gesture-name :spec {:freq 220}})]
 
    1 [(begin (ossg {:freq 300 :dur 1}))]
@@ -56,7 +56,7 @@
    silent-4 ;; four measures of silence
 
    1 [(finish :my-gesture-name :other-gesture-name)
-      (begin (ssg :third-gesture-name {:freq 500}))]
+      (begin :third-gesture-name (ssg {:freq 500}))]
 
    1 [(begin (ossg {:freq 600 :dur 1}))]
    2 [(begin (ossg {:freq 500 :dur 1}))]
