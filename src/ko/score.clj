@@ -27,13 +27,14 @@
 (defn record-begin-events [measure-num quant begin-events]
   (doseq [event begin-events]
     (let [g-name (second event)
-          g-spec (-> event second second)]
+          g-spec (second (nth event 2))]
+
       (swap! *mutations* assoc g-name (gesture-record g-spec)))))
 
 (defn record-mutations [measure-num quant mutations-events]
   (doseq [mutation (map second mutations-events)]
     (let [g-name (:name mutation)
-          gesture (*mutations* g-name)]
+          gesture (@*mutations* g-name)]
 
       (if-not gesture
         (throw (Exception.
@@ -42,8 +43,13 @@
       (swap! *mutations* update-in [g-name :mutations] conj mutation))))
 
 (defn event-type [form]
-  (cond (and (seq? form) (= '! (first form))) :mutations
-        :else :client-scheduled-events))
+  (cond (seq? form)
+        (cond (= '! (first form)) :mutations
+              (= 'begin (first form)) :begin-events
+              :else :basic-scheduled-events)
+
+        :else (throw (Exception.
+                      (str "Unrecognized event " form)))))
 
 (defn extract-measure [score measure-num]
   (loop [measure []
@@ -51,15 +57,17 @@
 
     (let [quant (first remaining-score)
           events (second remaining-score)
-          {:keys [client-scheduled-events mutations]} (group-by event-type events)
-          begin-events (filter client-scheduled-events #(= 'begin (first %)))
+          {:keys [basic-scheduled-events
+                  mutations
+                  begin-events]} (group-by event-type events)
+          scheduled-events (apply conj basic-scheduled-events begin-events)
           next-remaining-score (-> remaining-score rest rest)
           next-item-in-score (first next-remaining-score)
-          next-measure (if (empty? client-scheduled-events)
-                         measure (conj measure quant client-scheduled-events))]
+          next-measure (if (empty? basic-scheduled-events)
+                         measure (conj measure quant basic-scheduled-events))]
 
-      (if begin-events (record-begin-events measure-num quant begin-events))
-      (if mutations (record-mutations measure-num quant mutations))
+      (if-not (empty? begin-events) (record-begin-events measure-num quant begin-events))
+      (if-not (empty? mutations) (record-mutations measure-num quant mutations))
 
       (cond
         (and (number? next-item-in-score) (< quant next-item-in-score))
@@ -70,22 +78,28 @@
 (defn extract-silence [score]
   [ [0 []] (rest score) ])
 
-(defn extract-mutation [score]
-  [nil (-> score rest rest)])
-
 (defn extract-next-measure [score measure-num]
   (cond (number? (first score)) (extract-measure score measure-num)
-        (= 'silent (first score)) (extract-silence score)))
+        (= 'silent (first score)) (extract-silence score)
+        :else
+        (throw
+         (Exception.
+          (str "Unrecognized input around measure " measure-num ": " score)))))
 
-(defmacro read-score [& input-score]
-  (binding [*mutations* (atom [])]
+(defn parse-score [input-score]
+  (binding [*mutations* (atom {})]
     (loop [expanded-score []
            score input-score
            measure-num 1]
 
       (let [[measure remaining-input-score] (extract-next-measure score measure-num)
-            next-expanded-score (if-conj expanded-score measure)]
+            next-expanded-score (conj expanded-score measure)]
 
         (if (empty? remaining-input-score)
           next-expanded-score
           (recur next-expanded-score remaining-input-score (inc measure-num)))))))
+
+(defmacro read-score [& input-score]
+  (if (empty? input-score)
+    []
+    (parse-score input-score)))

@@ -2,11 +2,6 @@
   (:use midje.sweet)
   (:require [ko.score :refer :all]))
 
-(facts "about `extract-next-measure`"
-       (fact
-        (extract-next-measure
-         '(1 [(+ 1 1)])) => [[1 ['(+ 1 1)]] '()]))
-
 (facts "about `read-score`"
        (fact
         (read-score) => [])
@@ -17,22 +12,23 @@
 
        (fact
         (read-score
-         1 [(+ 1 1)
-            2]
+         1 [(begin :my-gesture-name (ssg {:freq 440}))
+            (+ 1 1)
+            (- 1)]
 
-         2 [3]
+         2 [(- 1 2)]
 
-         ;; 3 [(! {:name (:name a-gesture) :spec {:freq 220}})]
+         3 [(! {:name :my-gesture-name :spec {:freq [220 :exp]}})]
 
-         1 [3]) => [ [1 [2 2]
-                      2 [3]]
-                     [1 [3]] ])
+         1 [(* 12)]) => [ [1 [2 -1]
+                             2 [-1]]
+                            [1 [12]] ])
 
        (fact
         (read-score
          1 [(+ 1 1)
-            2]
-         silent) => [ [1 [2 2]]
+            (+ 1)]
+         silent) => [ [1 [2 1]]
                       [0 []] ] ))
 
 (comment
@@ -41,9 +37,11 @@
    set-beats-per-bar 4
    set-beats-per-minute 108
 
-   1 [(begin :other-gesture-name (ssg {:freq 200}))
+   1 [(begin :my-gesture-name (ssg {:freq 200}))
       ((begin :other-gesture-name (ssg {:freq 400})))]
-   3 [(! {:name :my-gesture-name :spec {:freq 220}})]
+
+   ;; specify envelope nodes
+   3 [(! {:name :my-gesture-name :spec {:freq [220 :exp] :amp [0.1 :exp]}})]
 
    1 [(begin (ossg {:freq 300 :dur 1}))]
    2 [(begin (ossg {:freq 400 :dur 1}))]
@@ -66,6 +64,6 @@
    1 [(jump-to :beginning (fn [jump-count] (< 1 jump-count)))
       (finish :third-gesture-name)]
    or
-   1 [(jump-to :beginning continue-flag)
+   1 [(jump-to :beginning #(continue-flag))
       (finish :third-gesture-name)]
    ))
