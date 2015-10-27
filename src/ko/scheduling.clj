@@ -3,7 +3,7 @@
   [:use [ko.gesture]]
   (:gen-class))
 
-(defn remove-from-atom-mapq [atom-map k]
+(defn remove-from-atom-map [atom-map k]
   (swap! atom-map
          (fn [atom-map-val]
            (apply dissoc (into [atom-map-val] k)))))
@@ -56,10 +56,11 @@
 
 (defmacro begin
   "Send start message to a gesture"
-  [gesture]
-  `(fn []
-     (prn ~(str "begin " (second gesture)))
-     (g-start ~(concat gesture '(living-gestures-map-atom)))))
+  [g-name gesture]
+  `(let [g-instance# ~gesture]
+     #((prn (str "begin " ~g-name))
+       (swap! living-gestures-map-atom (fn [lgm#] (assoc lgm# ~g-name g-instance#)))
+       (g-start g-instance#))))
 
 (defn adjust
   "Send control messages to a running gesture.
@@ -71,12 +72,12 @@
 
 (defn finish
   "Send end message to gestures and remove from `living-gestures-map-atom`"
-  [& names]
-  #(let [gestures ((apply juxt names) @living-gestures-map-atom)]
-     (prn (apply str (concat ["finish "] names)))
-     (doseq [gesture-to-end gestures]
-       (remove-from-atom-map gesture-map-atom g-name)
-       (ot/kill (g-end gesture-to-end)))))
+  [& g-names]
+  #(let [gestures @living-gestures-map-atom]
+     (prn (apply str (concat ["finish "] g-names)))
+     (doseq [g-name g-names]
+       (remove-from-atom-map living-gestures-map-atom g-name)
+       (ot/kill (g-end (g-name gestures))))))
 
 (defn play-score [score]
   (schedule-cycle (:measures score) (ot/now)))

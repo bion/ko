@@ -1,6 +1,8 @@
 (ns ko.score-test
   (:use midje.sweet)
-  (:require [ko.score :refer :all]))
+  (:use ko.synth_defs.single_signal)
+  (:use ko.gestures.single_signal)
+  (:use ko.score ko.scheduling))
 
 (facts "about `read-score`"
        (fact
@@ -12,17 +14,10 @@
 
        (fact
         (read-score
-         1 [(begin :my-gesture-name (ssg {:freq 440}))
-            (+ 1 1)
-            (- 1)]
-
-         2 [(- 1 2)]
+         1 [(begin :my-gesture-name (ssg {:freq 440 :instr sin-synth}))]
 
          3 [(! {:name :my-gesture-name :spec {:freq [220 :exp]}})]
-
-         1 [(* 12)]) => [ [1 [2 -1]
-                             2 [-1]]
-                            [1 [12]] ])
+         ) => #(fn? (-> % first second first)))
 
        (fact
         (read-score

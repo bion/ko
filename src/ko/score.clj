@@ -1,5 +1,6 @@
 (ns ko.score
   (:use ko.scheduling)
+  (:require [clojure.core.match :refer [match]])
   (:gen-class))
 
 ;; (defn a-gesture
@@ -56,15 +57,14 @@
          remaining-score score]
 
     (let [quant (first remaining-score)
-          events (second remaining-score)
           {:keys [basic-scheduled-events
                   mutations
-                  begin-events]} (group-by event-type events)
+                  begin-events]} (group-by event-type (second remaining-score))
           scheduled-events (apply conj basic-scheduled-events begin-events)
           next-remaining-score (-> remaining-score rest rest)
           next-item-in-score (first next-remaining-score)
-          next-measure (if (empty? basic-scheduled-events)
-                         measure (conj measure quant basic-scheduled-events))]
+          next-measure (if (empty? scheduled-events)
+                        measure (conj measure quant (into [] scheduled-events)))]
 
       (if-not (empty? begin-events) (record-begin-events measure-num quant begin-events))
       (if-not (empty? mutations) (record-mutations measure-num quant mutations))
