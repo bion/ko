@@ -10,21 +10,21 @@
 
        (fact
         (read-score
-         1 [(+ 2 2)]) => [[1 [4]]])
+         1 [(+ 2 2)]) => [[[1 [4]] ] {}])
 
        (fact
         (read-score
          1 [(begin :my-gesture-name (ssg {:freq 440 :instr sin-synth}))]
 
          3 [(! {:name :my-gesture-name :spec {:freq [220 :exp]}})]
-         ) => #(fn? (-> % first second first)))
+         ) => #(fn? (-> % first first second first)))
 
        (fact
         (read-score
          1 [(+ 1 1)
             (+ 1)]
-         silent) => [ [1 [2 1]]
-                      [0 []] ] ))
+         silent) => [[ [1 [2 1]]
+                       [0 []] ] {}] ))
 
 (comment
   (read-score
