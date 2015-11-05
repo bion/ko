@@ -57,7 +57,7 @@
 (defmacro begin
   "Send start message to a gesture"
   [g-name gesture]
-  `(let [g-instance# ~gesture]
+  `(let [g-instance# (~@gesture ~g-name)]
      #((prn (str "begin " ~g-name))
        (swap! living-gestures-map-atom (fn [lgm#] (assoc lgm# ~g-name g-instance#)))
        (g-start g-instance#))))

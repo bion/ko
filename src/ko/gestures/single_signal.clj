@@ -7,7 +7,7 @@
    [overtone.core :as ot]]
   (:gen-class))
 
-(deftype GSingleSynth [spec node-vec-atom]
+(deftype GSingleSynth [spec g-name node-vec-atom]
   IGesture
   (g-nodes [this] @node-vec-atom)
 
@@ -21,7 +21,9 @@
 
   (g-end [this] @node-vec-atom))
 
-(defn ssg [spec]
+(defn ssg [spec g-name]
   (if (nil? (:instr spec))
-    (throw (Exception. (str "no instr specified in `ssg` with `spec`:" spec)))
-    (GSingleSynth. spec (atom []))))
+    (throw (Exception. (str "no instr specified in `ssg` " g-name
+                            " with `spec`: " spec))))
+
+  (GSingleSynth. spec g-name (atom [])))
