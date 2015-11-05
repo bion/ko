@@ -3,47 +3,45 @@
   (:require [clojure.core.match :refer [match]])
   (:gen-class))
 
-;; (defn a-gesture
-;;   ([freq amp] (a-gesture amp (gensym)))
-;;   ([freq amp g-name]
-;;    '[begin ssg g-name {:instr sin-synth :freq freq :amp amp :action 0}]))
-
-;; (defn start-stop
-;;   ([freq amp] (start-stop freq amp (gensym)))
-;;   ([freq amp g-name]
-;;    {:name g-name
-;;     :begin [begin ssg g-name {:instr sin-synth :freq freq :amp amp :action 0}]
-;;     :end [finish g-name]}))
-
 (comment
   {:gesture-name
-   {:begin-state {:freq 200 :amp 1}
-    :mutations [{:measure 1 :quant 2.5 :spec {:freq 300 :curve :exp}}
-                {:measure 3 :quant 1 :spec {:freq 200 :curve :exp}}]}})
+   ;; TODO this should just be an array of snapshots
+   ;; TODO begin is implicitly the first hash in the array
+   {:begin {:measure 1 :quant 1 :timestamp 1.12 :spec {:freq 200 :amp 1}}
+    :mutations [{:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq 300 :curve :exp}}
+                {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq 200 :curve :exp}}]}})
 
-(defn gesture-record [g-spec]
-  {:begin-state g-spec :mutations []})
+(def ^:dynamic *beats-per-minute*)
+(def ^:dynamic *beats-per-bar*)
 
-(deftrace record-begin-events [measure-num quant begin-events mutations]
+(defn gesture-record [g-spec measure-num quant timestamp]
+  {:begin {:measure measure-num :quant quant :timestamp timestamp :spec g-spec}
+   :mutations []})
+
+(defn record-begin-events [measure-num quant begin-events mutations timestamp]
   (if (empty? begin-events)
     mutations
     (reduce (fn [memo event]
               (let [g-name (second event)
                     g-spec (second (nth event 2))]
-                (merge memo {g-name (gesture-record g-spec)})))
+                (merge memo {g-name (gesture-record g-spec
+                                                    measure-num
+                                                    quant
+                                                    timestamp)})))
             mutations
             begin-events)))
 
-(deftrace record-mutations [measure-num quant mutations-events mutations]
+(defn record-mutations [measure-num quant mutations-events mutations timestamp]
   (if (empty? mutations-events)
     mutations
     (reduce (fn [memo event]
               (let [g-name (:name event)
+                    event-record (assoc event :timestamp timestamp)
                     gesture (mutations g-name)]
                 (if-not gesture
                   (throw (Exception.
                           (str "No gesture found for `!` (mutation): " g-name))))
-                (update-in mutations [g-name :mutations] conj event)))
+                (update-in mutations [g-name :mutations] conj event-record)))
             mutations
             (map second mutations-events))))
 
@@ -55,7 +53,16 @@
         :else (throw (Exception.
                       (str "Unrecognized event " form)))))
 
-(defn extract-measure [score measure-num mutations]
+(defn- beat-dur []
+  (/ 60 @*beats-per-minute*))
+
+(defn- quant->duration [quant]
+  (* (beat-dur) (- quant 1)))
+
+(defn- inc-measure-timestamp [timestamp]
+  (+ timestamp (* (beat-dur) @*beats-per-bar*)))
+
+(defn extract-measure [score measure-num mutations measure-timestamp]
   (loop [measure []
          remaining-score score
          mutations-acc mutations]
@@ -69,52 +76,119 @@
           next-item-in-score (first next-remaining-score)
           next-measure (if (empty? scheduled-events)
                          measure (conj measure quant (into [] scheduled-events)))
+
+          quant-timestamp (+ measure-timestamp (quant->duration quant))
+          next-mutations (record-begin-events measure-num
+                                              quant
+                                              begin-events
+                                              mutations-acc
+                                              quant-timestamp)
           next-mutations (record-mutations measure-num
                                            quant
                                            mutation-events
-                                           (record-begin-events measure-num
-                                                                quant
-                                                                begin-events
-                                                                mutations-acc))]
+                                           next-mutations
+                                           quant-timestamp)]
+
       (cond
         (and (number? next-item-in-score) (< quant next-item-in-score))
         (recur next-measure next-remaining-score next-mutations)
 
-        :else [next-measure next-remaining-score next-mutations]))))
+        :else [next-measure
+               next-remaining-score
+               next-mutations
+               (inc-measure-timestamp measure-timestamp)]))))
 
-(defn extract-silence [score]
-  [ [0 []] (rest score) {} ])
+(defn- set-global [global]
+  (fn [remaining-score expanded-score mutations measure-num measure-timestamp]
+    (let [new-val (second remaining-score)
+          next-remaining-score (-> remaining-score rest rest)]
+      (reset! global new-val)
+      [next-remaining-score expanded-score mutations measure-num measure-timestamp])))
 
-(defn extract-next-measure [score measure-num mutations]
-  (cond (number? (first score)) (extract-measure score measure-num mutations)
-        (= 'silent (first score)) (extract-silence score)
-        :else
-        (throw
-         (Exception.
-          (str "Unrecognized input around measure " measure-num ": " score)))))
+(def token-handlers
+  ;; can-handle? => handle pairs
+  ;; handler params [score expanded-score mutations measure-num timestamp]
+  ;; returns [next-remaining-score next-expanded-score next-mutations next-measure-num next-timestamp]
+
+  ;; normal measure handler
+  {#(number? (first %))
+   (fn [remaining-score expanded-score mutations measure-num time]
+     (let [[next-measure
+            next-remaining-score
+            next-mutations] (extract-measure remaining-score measure-num mutations time)
+
+           next-expanded-score (conj expanded-score next-measure)]
+       [next-remaining-score next-expanded-score next-mutations (inc measure-num) time]))
+
+   ;; insert one measure of silence
+   #(= 'silent (first %))
+   (fn [remaining-score expanded-score mutations measure-num timestamp]
+     (let [next-measure [0 []]
+           next-remaining-score (rest remaining-score)
+           next-expanded-score (conj expanded-score
+                                     next-measure)
+           next-timestamp (inc-measure-timestamp timestamp)]
+       [next-remaining-score
+        next-expanded-score
+        mutations
+        (inc measure-num)
+        next-timestamp]))
+
+   ;; time signature
+   #(= 'set-beats-per-bar (first %))
+   (set-global *beats-per-bar*)
+
+   ;; tempo
+   #(= 'set-beats-per-minute (first %))
+   (set-global *beats-per-minute*)})
+
+(defn resolve-handler [score measure-num]
+  (let [next-token (first score)
+        handler (first (filter
+                        (fn [[can-handle? handle]]
+                          (can-handle? next-token))
+                        token-handlers))]
+    (if (nil? handler) (throw
+                        (Exception.
+                         (str "Unrecognized input around measure " measure-num
+                              ": " score)))
+        handler)))
 
 (defn parse-score [input-score]
   (loop [expanded-score []
          mutations {}
          score input-score
-         measure-num 1]
+         measure-num 1
+         timestamp 0]
 
-    (let [[measure
-           remaining-input-score
-           this-measure-mutations] (extract-next-measure score
-                                                         measure-num
-                                                         mutations)
-          next-expanded-score (conj expanded-score measure)
-          next-mutations (merge mutations this-measure-mutations)]
+    (let [[next-remaining-score
+           next-expanded-score
+           next-mutations
+           next-measure-num
+           next-timestamp] ((resolve-handler score measure-num)
+                            score
+                            expanded-score
+                            mutations
+                            measure-num
+                            timestamp)]
 
-      (if (empty? remaining-input-score)
-        [next-expanded-score next-mutations]
+      (if (empty? next-remaining-score)
+        {:score next-expanded-score :mutations next-mutations}
         (recur next-expanded-score
                next-mutations
-               remaining-input-score
-               (inc measure-num))))))
+               next-remaining-score
+               next-measure-num
+               next-timestamp)))))
 
-(defmacro read-score [& input-score]
+;; (defn apply-mutations [{:keys [score mutations]}]
+;;   (loop [index 0
+;;          updated-score score]
+;;     (let [current-measure (updated-score)]
+;;       (recur (inc index)))))
+
+(defmacro prepare-score [& input-score]
   (if (empty? input-score)
     []
-    (parse-score input-score)))
+    (binding [*beats-per-minute* (atom nil)
+              *beats-per-bar* (atom nil)]
+      (parse-score input-score))))

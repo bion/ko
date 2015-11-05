@@ -1,33 +1,34 @@
 (ns ko.score-test
-  (:use midje.sweet)
-  (:use ko.synth_defs.single_signal)
-  (:use ko.gestures.single_signal)
-  (:use ko.score ko.scheduling))
+  (:use midje.sweet
+        ko.synth_defs.single_signal
+        ko.gestures.single_signal
+        ko.score
+        ko.scheduling))
 
-(facts "about `read-score`"
+(facts "about `prepare-score`"
        (fact
-        (read-score) => [])
+        (prepare-score) => [])
 
        (fact
-        (read-score
+        (prepare-score
          1 [(+ 2 2)]) => [[[1 [4]] ] {}])
 
        (fact
-        (read-score
-         1 [(begin :my-gesture-name (ssg {:freq 440 :instr sin-synth}))]
+        (prepare-score
+         1 [(begin :my-gesture-name (ssg {:freq 440 :instr 'sin-synth}))]
 
          3 [(! {:name :my-gesture-name :spec {:freq [220 :exp]}})]
          ) => #(fn? (-> % first first second first)))
 
        (fact
-        (read-score
+        (prepare-score
          1 [(+ 1 1)
             (+ 1)]
          silent) => [[ [1 [2 1]]
                        [0 []] ] {}] ))
 
 (comment
-  (read-score
+  (prepare-score
    label :beginning
    set-beats-per-bar 4
    set-beats-per-minute 108
