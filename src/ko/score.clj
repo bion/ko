@@ -3,20 +3,17 @@
   (:require [clojure.core.match :refer [match]])
   (:gen-class))
 
-(comment
-  {:gesture-name
-   ;; TODO this should just be an array of snapshots
-   ;; TODO begin is implicitly the first hash in the array
-   {:begin {:measure 1 :quant 1 :timestamp 1.12 :spec {:freq 200 :amp 1}}
-    :mutations [{:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq 300 :curve :exp}}
-                {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq 200 :curve :exp}}]}})
-
 (def ^:dynamic *beats-per-minute*)
 (def ^:dynamic *beats-per-bar*)
 
-(defn gesture-record [g-spec measure-num quant timestamp]
-  {:begin {:measure measure-num :quant quant :timestamp timestamp :spec g-spec}
-   :mutations []})
+(defn gesture-record
+  "{:gesture-name
+     ;; first one is beginning of gesture
+     [{:measure 1 :quant 1 :timestamp 1.12 :spec {:instr foo :freq 200 :amp 1}}
+      {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq 300 :curve :exp}}
+      {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq 200 :curve :exp}}]}"
+  [g-spec measure-num quant timestamp]
+  [{:measure measure-num :quant quant :timestamp timestamp :spec g-spec}])
 
 (defn record-begin-events [measure-num quant begin-events mutations timestamp]
   (if (empty? begin-events)
@@ -41,7 +38,7 @@
                 (if-not gesture
                   (throw (Exception.
                           (str "No gesture found for `!` (mutation): " g-name))))
-                (update-in mutations [g-name :mutations] conj event-record)))
+                (update-in mutations [g-name] conj event-record)))
             mutations
             (map second mutations-events))))
 
@@ -63,7 +60,7 @@
   (+ timestamp (* (beat-dur) @*beats-per-bar*)))
 
 (defn extract-measure [score measure-num mutations measure-timestamp]
-  (loop [measure []
+  (loop [measure {}
          remaining-score score
          mutations-acc mutations]
 
@@ -75,7 +72,7 @@
           next-remaining-score (-> remaining-score rest rest)
           next-item-in-score (first next-remaining-score)
           next-measure (if (empty? scheduled-events)
-                         measure (conj measure quant (into [] scheduled-events)))
+                         measure (assoc measure quant (into [] scheduled-events)))
 
           quant-timestamp (+ measure-timestamp (quant->duration quant))
           next-mutations (record-begin-events measure-num
@@ -180,15 +177,26 @@
                next-measure-num
                next-timestamp)))))
 
-;; (defn apply-mutations [{:keys [score mutations]}]
-;;   (loop [index 0
-;;          updated-score score]
-;;     (let [current-measure (updated-score)]
-;;       (recur (inc index)))))
+(defn zip-mutations
+  "appends matching mutations to begin events in `score`"
+  [{:keys [score mutations]}]
+  (reduce (fn [updated-score [g-name g-mutation-list]]
+            (let [{:keys [measure quant] (first g-mutation-list)}]
+              (update-in score
+                         [measure quant]
+                         (fn [events]
+                           (map (fn [event]
+                                  (if (and (= 'begin (first event))
+                                           (= g-name (second event)))
+                                    (concat event '(g-mutation-list))
+                                    event))
+                                events)))))
+          score
+          mutations))
 
 (defmacro prepare-score [& input-score]
   (if (empty? input-score)
     []
     (binding [*beats-per-minute* (atom nil)
               *beats-per-bar* (atom nil)]
-      (parse-score input-score))))
+      (apply-mutations (parse-score input-score)))))

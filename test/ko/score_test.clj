@@ -7,25 +7,21 @@
 
 (facts "about `prepare-score`"
        (fact
-        (prepare-score) => [])
-
-       (fact
-        (prepare-score
-         1 [(+ 2 2)]) => [[[1 [4]] ] {}])
-
-       (fact
-        (prepare-score
-         1 [(begin :my-gesture-name (ssg {:freq 440 :instr 'sin-synth}))]
-
-         3 [(! {:name :my-gesture-name :spec {:freq [220 :exp]}})]
-         ) => #(fn? (-> % first first second first)))
+        (prepare-score) => {})
 
        (fact
         (prepare-score
          1 [(+ 1 1)
             (+ 1)]
-         silent) => [[ [1 [2 1]]
-                       [0 []] ] {}] ))
+         silent) => [{ 1 [2 1] }
+                     {  0 [] }]))
+
+(facts "about `apply-mutations`"
+       (fact
+        (apply-mutations
+         [[ [1 ['(begin :g-one)]] ]]
+         {:g-one "mutations"}) => [[ [1 ['(begin :g-one {:begin {:foo}})]] ]] ))
+
 
 (comment
   (prepare-score
