@@ -7,11 +7,13 @@
 (def ^:dynamic *beats-per-bar*)
 
 (defn gesture-record
-  "{:gesture-name
+  "
+  begin event must specify inital state for all mutations
+  {:gesture-name
      ;; first one is beginning of gesture
      [{:measure 1 :quant 1 :timestamp 1.12 :spec {:instr foo :freq 200 :amp 1}}
-      {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq 300 :curve :exp}}
-      {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq 200 :curve :exp}}]}"
+      {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [300 :exp]}}
+      {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq [200 :exp]}}]}"
   [g-spec measure-num quant timestamp]
   [{:measure measure-num :quant quant :timestamp timestamp :spec g-spec}])
 
