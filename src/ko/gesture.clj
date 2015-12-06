@@ -18,11 +18,24 @@
     `(do
        (ot/defsynth ~s-name ~args ~body)
        (swap! ko-synth-templates
-              #(assoc % ~kword-s-name ['~args '~body])))))
+              #(assoc % ~kword-s-name '(~args ~body))))))
 
-(defn with-mutations [synth mutations]
-  (let [[s-args s-body] ((var->keyword synth) ko-synth-templates)
-        s-name (str (var->string synth) "-" (gensym))
-        s-form (conj s-body s-args)
-        [s-name params ugen-form] (ot/synth-form s-name s-form)]
-    (prn s-name params ugen-form)))
+(defmacro with-mutations
+  "Returns a function that plays the given synth with mutations applied"
+  [synth-template-name mutations]
+  (let [s-template (synth-template-name @ko-synth-templates)]
+    (if-not s-template
+      (throw (Exception. (str "no synth template found for: " synth-template-name))))
+
+    (let [s-name (symbol (str synth-template-name "-" (gensym)))
+          [s-name params ugen-form] (ot/synth-form s-name s-template)]
+
+      `(ot/synth ~s-name ~params ~ugen-form))))
+
+(ko-defsynth test-synth
+             [one 1 two 2]
+             (ot/out 0 0))
+
+(@ko-synth-templates :test-synth)
+
+(with-mutations :test-synth nil)
