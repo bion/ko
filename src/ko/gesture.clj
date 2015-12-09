@@ -3,6 +3,7 @@
   (:gen-class))
 
 (def ko-synth-templates (atom {}))
+(def keyword->symbol #(symbol (str (name %))))
 
 (defmacro ko-defsynth
   "Define an overtone synth as per usual, but also store the
@@ -14,28 +15,32 @@
        (swap! ko-synth-templates
               #(assoc % ~kword-s-name '(~args ~body))))))
 
-(defmacro with-mutations
-  "Returns a function that plays the given synth with mutations applied"
-  [synth-template-name mutations]
-  (let [s-template (synth-template-name @ko-synth-templates)]
-    (if-not s-template
-      (throw (Exception. (str "no synth template found for: " synth-template-name))))
+(defn remove-param [param-list removed-param-names]
+  (let [param-map (hash-map param-list)
+        remaining-params (clojure.set/difference (set (keys param-map))
+                                                 (set removed-param-names))]
+    (loop [params (transient [])
+           add-params remaining-params]
+      (cond (empty? add-params)
+            (persistent! params)
 
-    (let [s-name (symbol (str (name synth-template-name) "-" (gensym)))
-          [s-name params ugen-form] (ot/synth-form s-name s-template)]
+            :else
+            (let [param-key (first add-params)
+                  param-val (param-key param-map)]
+              (conj! params param-key)
+              (conj! params param-val)
+              (recur params (rest add-params)))))))
 
-      `(ot/synth ~s-name ~params ~ugen-form))))
-
-(defn enveloped-param [param initial snapshots]
-  (let [bus (ot/audio-bus 1 (str (name param) (gensym)))
-        start-time (:timestamp initial)
+(defn enveloped-param
+  "creates an envelope for a given mutating param"
+  [param initial snapshots]
+  (let [start-time (:timestamp initial)
         levels (transient [(->> initial :spec param)])
         durs (transient [])
         curves (transient [])]
     (loop [remaining-snapshots snapshots]
       (if (empty? remaining-snapshots)
         {:param-name param
-         :bus bus
          :envelope (map persistent! [levels durs curves])}
         (let [snapshot (first remaining-snapshots)
               [level curve] (->> snapshot :spec param)
@@ -45,9 +50,9 @@
           (conj! curves curve)
           (recur (rest remaining-snapshots)))))))
 
-(defn creates-envelopes-from-mutations
-  "converts a vector of gesture states into a hash of the form
-  {:param-name envelope}"
+(defn mutations->envelopes
+  "converts a vector of gesture states into a vector of hashes
+  of the form {:param-name \"some param\" :envelope envelope}}"
   [gesture-events]
   (let [param-keys (->> gesture-events first :spec keys)
         initial (first gesture-events)
@@ -57,8 +62,34 @@
           :when (not (empty? param-snapshots))]
       (enveloped-param param initial param-snapshots))))
 
-(ko-defsynth test-synth
-             [freq 1]
-             (ot/out 0 (ot/sin-osc freq)))
+(defn envelope-binding-form
+  "given a collection of envelopes, returns a vector "
+  [envelopes]
+  (-> (map #([(keyword->symbol (:param-name %)) (conj () (:envelope %) 'env-gen)])
+           envelopes)
+      flatten
+      vec))
 
-(with-mutations :test-synth [])
+(defn apply-mutations
+  "for each mutating param, removes the param from the arglist and
+  injects an envelope in its place"
+  [s-template mutations]
+  (let [envelopes (mutations->envelopes mutations)
+        envelope-bindings (envelope-binding-form envelopes)
+        param-list (remove-param (first s-template) (map :param-name envelopes))
+        new-ugen-forms (conj () (last s-template) envelope-bindings 'let)
+        new-template (conj () new-ugen-forms param-list)]
+    new-template))
+
+(defmacro with-mutations
+  "Returns a function that plays the given synth with mutations applied"
+  [synth-template-name mutations]
+  (let [s-template (synth-template-name @ko-synth-templates)]
+    (if-not s-template
+      (throw (Exception. (str "no synth template found for: " synth-template-name))))
+
+    (let [s-name (symbol (str (name synth-template-name) "-" (gensym)))
+          s-template (apply-mutations s-template mutations)
+          [s-name params ugen-form] (ot/synth-form s-name s-template)]
+
+      `(ot/synth ~s-name ~params ~ugen-form))))
