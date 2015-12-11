@@ -16,9 +16,10 @@
               #(assoc % ~kword-s-name '(~args ~body))))))
 
 (defn remove-param [param-list removed-param-names]
-  (let [param-map (hash-map param-list)
+  (let [param-map (apply hash-map param-list)
+        removed-params-symbols (map keyword->symbol removed-param-names)
         remaining-params (clojure.set/difference (set (keys param-map))
-                                                 (set removed-param-names))]
+                                                 (set removed-params-symbols))]
     (loop [params (transient [])
            add-params remaining-params]
       (cond (empty? add-params)
@@ -32,23 +33,26 @@
               (recur params (rest add-params)))))))
 
 (defn enveloped-param
-  "creates an envelope for a given mutating param"
+  "creates an envelope record (not an overtone.core/envelope)
+  for a given mutating param"
   [param initial snapshots]
   (let [start-time (:timestamp initial)
         levels (transient [(->> initial :spec param)])
         durs (transient [])
         curves (transient [])]
-    (loop [remaining-snapshots snapshots]
+    (loop [remaining-snapshots snapshots
+           last-timestamp start-time]
       (if (empty? remaining-snapshots)
         {:param-name param
-         :envelope (map persistent! [levels durs curves])}
+         :envelope (apply ot/envelope (map persistent! [levels durs curves]))}
         (let [snapshot (first remaining-snapshots)
               [level curve] (->> snapshot :spec param)
-              dur (- (:timestamp snapshot) start-time)]
+              timestamp (:timestamp snapshot)
+              dur (- timestamp last-timestamp)]
           (conj! levels level)
           (conj! durs dur)
           (conj! curves curve)
-          (recur (rest remaining-snapshots)))))))
+          (recur (rest remaining-snapshots) timestamp))))))
 
 (defn mutations->envelopes
   "converts a vector of gesture states into a vector of hashes
@@ -65,10 +69,12 @@
 (defn envelope-binding-form
   "given a collection of envelopes, returns a vector "
   [envelopes]
-  (-> (map #([(keyword->symbol (:param-name %)) (conj () (:envelope %) 'env-gen)])
-           envelopes)
-      flatten
-      vec))
+  (apply concat
+         (vec
+          (map #(vec
+                 [(keyword->symbol (:param-name %))
+                  (conj () (:envelope %) 'ot/env-gen)])
+               envelopes))))
 
 (defn apply-mutations
   "for each mutating param, removes the param from the arglist and
@@ -77,7 +83,7 @@
   (let [envelopes (mutations->envelopes mutations)
         envelope-bindings (envelope-binding-form envelopes)
         param-list (remove-param (first s-template) (map :param-name envelopes))
-        new-ugen-forms (conj () (last s-template) envelope-bindings 'let)
+        new-ugen-forms (conj () (last s-template) (vec envelope-bindings) 'let)
         new-template (conj () new-ugen-forms param-list)]
     new-template))
 
@@ -93,3 +99,13 @@
           [s-name params ugen-form] (ot/synth-form s-name s-template)]
 
       `(ot/synth ~s-name ~params ~ugen-form))))
+
+(ko-defsynth test-synth
+             [freq 1]
+             (ot/out 0 (ot/sin-osc freq)))
+
+(:test-synth @ko-synth-templates)
+(with-mutations :test-synth
+  [{:measure 1 :quant 1 :timestamp 1.12 :spec {:freq 200 :amp 1}}
+   {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [300 :exp]}}
+   {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq [200 :exp]}}])

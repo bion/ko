@@ -7,8 +7,7 @@
 (def ^:dynamic *beats-per-bar*)
 
 (defn gesture-record
-  "
-  begin event must specify inital state for all mutations
+  "begin event must specify inital state for all mutations
   {:gesture-name
      ;; first one is beginning of gesture
      [{:measure 1 :quant 1 :timestamp 1.12 :spec {:instr foo :freq 200 :amp 1}}
