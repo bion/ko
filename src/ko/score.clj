@@ -1,6 +1,6 @@
 (ns ko.score
-  (:use ko.scheduling)
   (:require [clojure.core.match :refer [match]])
+  (:use ko.scheduling)
   (:gen-class))
 
 (def ^:dynamic *beats-per-minute*)
@@ -182,7 +182,7 @@
   "appends matching mutations to begin events in `score`"
   [{:keys [score mutations]}]
   (reduce (fn [updated-score [g-name g-mutation-list]]
-            (let [{:keys [measure quant] (first g-mutation-list)}]
+            (let [{:keys [measure quant]} (first g-mutation-list)]
               (update-in score
                          [measure quant]
                          (fn [events]

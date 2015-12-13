@@ -2,8 +2,12 @@
   [:require [overtone.core :as ot]]
   (:gen-class))
 
+(overtone.helpers.ns/immigrate 'ko.gestures.single_signal)
+
 (def ko-synth-templates (atom {}))
 (def keyword->symbol #(symbol (str (name %))))
+(defn var->keyword [item]
+  (keyword (name item)))
 
 (defmacro ko-defsynth
   "Define an overtone synth as per usual, but also store the
@@ -87,25 +91,33 @@
         new-template (conj () new-ugen-forms param-list)]
     new-template))
 
-(defmacro with-mutations
-  "Returns a function that plays the given synth with mutations applied"
-  [synth-template-name mutations]
-  (let [s-template (synth-template-name @ko-synth-templates)]
-    (if-not s-template
-      (throw (Exception. (str "no synth template found for: " synth-template-name))))
+(defmacro define-synth [s-name params ugen-form]
+  `(ot/synth ~s-name ~params ~ugen-form))
 
-    (let [s-name (symbol (str (name synth-template-name) "-" (gensym)))
+(defn with-mutations
+  "Returns a function that plays the given synth with mutations applied"
+  [instr-name mutations]
+  (let [s-template (instr-name @ko-synth-templates)]
+    (if-not s-template
+      (throw (Exception. (str "no synth template found for: " instr-name))))
+
+    (let [s-name (symbol (str (name instr-name) "-" (gensym)))
           s-template (apply-mutations s-template mutations)
           [s-name params ugen-form] (ot/synth-form s-name s-template)]
 
-      `(ot/synth ~s-name ~params ~ugen-form))))
+      (define-synth s-name params ugen-form))))
 
-(ko-defsynth test-synth
-             [freq 1]
-             (ot/out 0 (ot/sin-osc freq)))
-
-(:test-synth @ko-synth-templates)
-(with-mutations :test-synth
-  [{:measure 1 :quant 1 :timestamp 1.12 :spec {:freq 200 :amp 1}}
-   {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [300 :exp]}}
-   {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq [200 :exp]}}])
+;; returns a function that when called begins playing the gesture
+;; and returns a representation of the playing gesture
+(defn ssg-gest
+  [gesture mutations]
+  (let [spec (:spec gesture)
+        instr (:instr spec)]
+    (if (nil? instr)
+      (throw (Exception. (str "no instr specified in `ssg` gesture"
+                              " with `spec`: " spec))))
+    (let [instr-name (keyword (:name instr))
+          synth-args (flatten (into [] (dissoc spec :instr)))
+          synth-fn (with-mutations instr-name mutations)]
+      #(let [synth-id (apply synth-fn synth-args)]
+         synth-id))))

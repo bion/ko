@@ -1,5 +1,15 @@
 (ns ko.acceptance-test
- [:require [overtone.core :as ot]])
+  [:require [overtone.core :as ot]
+   [ko.score :as ko]])
+
+(ko-defsynth test-synth
+             [freq 1]
+             (ot/out 0 (ot/sin-osc freq)))
+(:test-synth @ko-synth-templates)
+(with-mutations test-synth
+  [{:measure 1 :quant 1 :timestamp 1.12 :spec {:freq 200 :amp 1}}
+   {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [300 :exp]}}
+   {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq [200 :exp]}}])
 
 (ot/defcgen bark-delay
   [in {:default 0 :doc "the input signal"}
@@ -16,7 +26,7 @@
              0.089999999999998 0.093823529411763 0.1015 0.10875 0.11
              0.10771428571429 0.12282352941176 0.13809523809524
              0.15037037037037 1.178125]
-         cf [50 150 250 350 450 570 700 840 1000 1170 1370 1600 1850
+         cf [50 150 '250 350 450 570 700 840 1000 1170 1370 1600 1850
              2150 2500 2900 3400 4000 4800 5800 7000 8500 10500 13500
              16000]
          filterbank (ot/b-band-pass (+ in (ot/local-in:ar 1))

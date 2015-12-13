@@ -54,7 +54,7 @@
                    schedule-cycle
                    [remaining-measures next-cycle-timestamp]))))
 
-(defmulti begin :type "start playing a gesture")
+(defmulti begin "start playing a gesture" :type)
 (defmethod begin :ssg
   [g-name gesture & mutations]
   (let [g-instance (ssg-gest gesture mutations)]
