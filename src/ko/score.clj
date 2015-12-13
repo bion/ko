@@ -109,7 +109,7 @@
   ;; returns [next-remaining-score next-expanded-score next-mutations next-measure-num next-timestamp]
 
   ;; normal measure handler
-  {#(number? (first %))
+  {#(number? %)
    (fn [remaining-score expanded-score mutations measure-num time]
      (let [[next-measure
             next-remaining-score
@@ -119,7 +119,7 @@
        [next-remaining-score next-expanded-score next-mutations (inc measure-num) time]))
 
    ;; insert one measure of silence
-   #(= 'silent (first %))
+   #(= 'silent %)
    (fn [remaining-score expanded-score mutations measure-num timestamp]
      (let [next-measure [0 []]
            next-remaining-score (rest remaining-score)
@@ -133,7 +133,7 @@
         next-timestamp]))
 
    ;; time signature
-   #(= 'set-beats-per-bar (first %))
+   #(= 'set-beats-per-bar %)
    (set-global *beats-per-bar*)
 
    ;; tempo
@@ -171,7 +171,7 @@
                             timestamp)]
 
       (if (empty? next-remaining-score)
-        {:score next-expanded-score :mutations next-mutations}
+        [next-expanded-score next-mutations]
         (recur next-expanded-score
                next-mutations
                next-remaining-score
@@ -195,9 +195,11 @@
           score
           mutations))
 
-(defmacro prepare-score [& input-score]
+(defmacro defscore [score-name & input-score]
   (if (empty? input-score)
     []
     (binding [*beats-per-minute* (atom nil)
               *beats-per-bar* (atom nil)]
-      (apply-mutations (parse-score input-score)))))
+      (let [[score mutations] (parse-score input-score)
+            score (zip-mutations score mutations)]
+        `(def ~score-name ~score)))))

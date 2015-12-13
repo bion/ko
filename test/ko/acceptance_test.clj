@@ -1,15 +1,22 @@
 (ns ko.acceptance-test
   [:require [overtone.core :as ot]
-   [ko.score :as ko]])
+   [ko.score :as ko]]
+  [:use [ko.gesture :only (ko-defsynth)]])
+
 
 (ko-defsynth test-synth
              [freq 1]
              (ot/out 0 (ot/sin-osc freq)))
-(:test-synth @ko-synth-templates)
-(with-mutations test-synth
-  [{:measure 1 :quant 1 :timestamp 1.12 :spec {:freq 200 :amp 1}}
-   {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [300 :exp]}}
-   {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq [200 :exp]}}])
+
+(ko/defscore test-score
+  set-beats-per-bar 4
+  set-beats-per-minute 108
+
+  1 [(begin :my-gesture-name {:type :ssg :spec {:instr test-synth :freq 200}})
+     ((begin :other-gesture-name {:type :ssg :spec {:instr test-synth :freq 400}}))]
+
+  ;; specify envelope nodes
+  3 [(! {:name :my-gesture-name :spec {:freq [220 :exp] :amp [0.1 :exp]}})])
 
 (ot/defcgen bark-delay
   [in {:default 0 :doc "the input signal"}
