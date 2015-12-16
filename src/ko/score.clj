@@ -179,18 +179,19 @@
 
 (defn zip-mutations
   "appends matching mutations to begin events in `score`"
-  [{:keys [score mutations]}]
+  [score mutations]
   (reduce (fn [updated-score [g-name g-mutation-list]]
             (let [{:keys [measure quant]} (first g-mutation-list)]
               (update-in score
-                         [measure quant]
+                         [(dec measure) quant]
                          (fn [events]
-                           (map (fn [event]
-                                  (if (and (= 'begin (first event))
-                                           (= g-name (second event)))
-                                    (concat event '(g-mutation-list))
-                                    event))
-                                events)))))
+                           (vec
+                            (map (fn [event]
+                                   (if (and (= 'begin (first event))
+                                            (= g-name (second event)))
+                                     (concat event `(~g-mutation-list))
+                                     event))
+                                 events))))))
           score
           mutations))
 
