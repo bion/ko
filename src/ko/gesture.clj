@@ -2,8 +2,6 @@
   [:require [overtone.core :as ot]]
   (:gen-class))
 
-(overtone.helpers.ns/immigrate 'ko.gestures.single_signal)
-
 (def ko-synth-templates (atom {}))
 (def keyword->symbol #(symbol (str (name %))))
 (defn var->keyword [item]

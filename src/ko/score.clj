@@ -3,8 +3,8 @@
   (:use ko.scheduling)
   (:gen-class))
 
-(def ^:dynamic *beats-per-minute*)
-(def ^:dynamic *beats-per-bar*)
+(def ^:dynamic *beats-per-bar* (atom nil))
+(def ^:dynamic *beats-per-minute* (atom nil))
 
 (defn gesture-record
   "begin event must specify inital state for all mutations
@@ -64,7 +64,6 @@
   (loop [measure {}
          remaining-score score
          mutations-acc mutations]
-
     (let [quant (first remaining-score)
           {:keys [basic-scheduled-events
                   mutation-events
@@ -137,15 +136,15 @@
    (set-global *beats-per-bar*)
 
    ;; tempo
-   #(= 'set-beats-per-minute (first %))
+   #(= 'set-beats-per-minute %)
    (set-global *beats-per-minute*)})
 
 (defn resolve-handler [score measure-num]
   (let [next-token (first score)
-        handler (first (filter
-                        (fn [[can-handle? handle]]
-                          (can-handle? next-token))
-                        token-handlers))]
+        handler (last (first (filter
+                              (fn [[can-handle? handle]]
+                                (can-handle? next-token))
+                              token-handlers)))]
     (if (nil? handler) (throw
                         (Exception.
                          (str "Unrecognized input around measure " measure-num
@@ -158,17 +157,17 @@
          score input-score
          measure-num 1
          timestamp 0]
-
-    (let [[next-remaining-score
+    (let [handler (resolve-handler score measure-num)
+          foo (prn handler)
+          [next-remaining-score
            next-expanded-score
            next-mutations
            next-measure-num
-           next-timestamp] ((resolve-handler score measure-num)
-                            score
-                            expanded-score
-                            mutations
-                            measure-num
-                            timestamp)]
+           next-timestamp] (handler score
+                                    expanded-score
+                                    mutations
+                                    measure-num
+                                    timestamp)]
 
       (if (empty? next-remaining-score)
         [next-expanded-score next-mutations]
@@ -198,8 +197,7 @@
 (defmacro defscore [score-name & input-score]
   (if (empty? input-score)
     []
-    (binding [*beats-per-minute* (atom nil)
-              *beats-per-bar* (atom nil)]
-      (let [[score mutations] (parse-score input-score)
-            score (zip-mutations score mutations)]
-        `(def ~score-name ~score)))))
+    (let [[score mutations] (parse-score input-score)
+          score (zip-mutations score mutations)]
+      (prn score)
+      `(def ~score-name ~score))))

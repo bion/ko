@@ -1,14 +1,13 @@
 (ns ko.acceptance-test
-  [:require [overtone.core :as ot]
-   [ko.score :as ko]]
-  [:use [ko.gesture :only (ko-defsynth)]])
-
+  [:require [overtone.core :as ot]]
+  [:use [ko.gesture :only (ko-defsynth)]
+        [ko.score :only (defscore)]])
 
 (ko-defsynth test-synth
              [freq 1]
              (ot/out 0 (ot/sin-osc freq)))
 
-(ko/defscore test-score
+(defscore test-score
   set-beats-per-bar 4
   set-beats-per-minute 108
 
