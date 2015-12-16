@@ -54,10 +54,15 @@
                    schedule-cycle
                    [remaining-measures next-cycle-timestamp]))))
 
-(defmulti begin "start playing a gesture" :type)
+;; clear previous definition of multimethod
+(def begin nil)
+(defmulti begin "start playing a gesture"
+  (fn [type & args]
+    type))
+
 (defmethod begin :ssg
-  [g-name gesture & mutations]
-  (let [g-instance (ssg-gest gesture mutations)]
+  [g-type g-name spec & mutations]
+  (let [g-instance (ssg-gest spec mutations)]
     #((prn (str "playing " g-name))
       (let [g-nodes (g-instance)]
         (swap! living-gestures-map-atom

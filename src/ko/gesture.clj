@@ -102,20 +102,20 @@
     (let [s-name (symbol (str (name instr-name) "-" (gensym)))
           s-template (apply-mutations s-template mutations)
           [s-name params ugen-form] (ot/synth-form s-name s-template)]
-
       (define-synth s-name params ugen-form))))
 
 ;; returns a function that when called begins playing the gesture
 ;; and returns a representation of the playing gesture
 (defn ssg-gest
-  [gesture mutations]
-  (let [spec (:spec gesture)
-        instr (:instr spec)]
+  [spec mutations]
+  (let [instr (:instr spec)]
     (if (nil? instr)
       (throw (Exception. (str "no instr specified in `ssg` gesture"
                               " with `spec`: " spec))))
     (let [instr-name (keyword (:name instr))
           synth-args (flatten (into [] (dissoc spec :instr)))
-          synth-fn (with-mutations instr-name mutations)]
+          synth-fn (if (second mutations)
+                     (with-mutations instr-name mutations)
+                     instr)]
       #(let [synth-id (apply synth-fn synth-args)]
          synth-id))))

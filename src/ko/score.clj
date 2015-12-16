@@ -16,12 +16,14 @@
   [g-spec measure-num quant timestamp]
   [{:measure measure-num :quant quant :timestamp timestamp :spec g-spec}])
 
-(defn record-begin-events [measure-num quant begin-events mutations timestamp]
+(defn record-begin-events
+  [measure-num quant begin-events mutations timestamp]
   (if (empty? begin-events)
     mutations
     (reduce (fn [memo event]
-              (let [g-name (second event)
-                    g-spec (second (nth event 2))]
+              (let [g-name (nth event 2)
+                    ;; this doesn't make sense when the gesture has no name
+                    g-spec (nth event 3)]
                 (merge memo {g-name (gesture-record g-spec
                                                     measure-num
                                                     quant
@@ -33,15 +35,18 @@
   (if (empty? mutations-events)
     mutations
     (reduce (fn [memo event]
-              (let [g-name (:name event)
-                    event-record (assoc event :timestamp timestamp)
+              (let [g-name (second event)
+                    event-record {:timestamp timestamp
+                                  :measure measure-num
+                                  :quant quant
+                                  :spec (nth event 2)}
                     gesture (mutations g-name)]
                 (if-not gesture
                   (throw (Exception.
                           (str "No gesture found for `!` (mutation): " g-name))))
                 (update-in mutations [g-name] conj event-record)))
             mutations
-            (map second mutations-events))))
+            mutations-events)))
 
 (defn event-type [form]
   (cond (seq? form)
@@ -158,7 +163,6 @@
          measure-num 1
          timestamp 0]
     (let [handler (resolve-handler score measure-num)
-          foo (prn handler)
           [next-remaining-score
            next-expanded-score
            next-mutations
@@ -188,7 +192,7 @@
                            (vec
                             (map (fn [event]
                                    (if (and (= 'begin (first event))
-                                            (= g-name (second event)))
+                                            (= g-name (nth event 2)))
                                      (concat event `(~g-mutation-list))
                                      event))
                                  events))))))
@@ -200,5 +204,4 @@
     []
     (let [[score mutations] (parse-score input-score)
           score (zip-mutations score mutations)]
-      (prn score)
       `(def ~score-name ~score))))
