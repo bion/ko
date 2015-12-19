@@ -79,5 +79,4 @@
        (finish :third-gesture-name)]
     or
     1 [(jump-to :beginning #(continue-flag))
-       (finish :third-gesture-name)]
-    ))
+       (finish :third-gesture-name)]))

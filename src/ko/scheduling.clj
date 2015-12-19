@@ -31,7 +31,7 @@
   "Each measure is a vector containing paired quant (decimal beat)
   and gesture data. Schedule measure's gesture's at their corresponding quant."
   [measure next-bar-timestamp]
-  (doseq [[quant events] (partition 2 measure)]
+  (doseq [[quant events] measure]
     (let [timestamp (quant-to-timestamp quant next-bar-timestamp (calc-beat-dur))]
       (ot/at timestamp
              (doseq [event events] (event))))))
@@ -63,10 +63,11 @@
 (defmethod begin :ssg
   [g-type g-name spec & mutations]
   (let [g-instance (ssg-gest spec mutations)]
-    #((prn (str "playing " g-name))
-      (let [g-nodes (g-instance)]
-        (swap! living-gestures-map-atom
-               (fn [lgm] (assoc lgm g-name g-nodes)))))))
+    #(do
+       (prn (str "playing " g-name))
+       (let [g-nodes (g-instance)]
+         (swap! living-gestures-map-atom
+                (fn [lgm] (assoc lgm g-name g-nodes)))))))
 
 (defn adjust
   "Send control messages to a running gesture.
