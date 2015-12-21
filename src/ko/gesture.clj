@@ -117,5 +117,4 @@
           synth-fn (if (second mutations)
                      (with-mutations instr-name mutations)
                      instr)]
-      #(let [synth-id (apply synth-fn synth-args)]
-         synth-id))))
+      #(apply synth-fn synth-args))))
