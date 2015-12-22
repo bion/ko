@@ -62,7 +62,7 @@
 
 (defmethod begin :ssg
   [g-type g-name spec & mutations]
-  (let [g-instance (ssg-gest spec mutations)]
+  (let [g-instance (ssg-gest spec (first mutations))]
     #(do
        (prn (str "playing " g-name))
        (let [g-nodes (g-instance)]

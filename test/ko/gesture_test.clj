@@ -24,3 +24,32 @@
         {:measure 3 :quant 1 :timestamp 4.5 :spec {:freq [200 :exp]}}])
       => {:envelope (apply ot/envelope [[100 300 200] [0.5 2.5] [:exp :exp]])
           :param-name :freq})
+
+(fact "`mutations->envelopes` creates envelopes from mutations"
+      (let [mutations [{:measure 1 :quant 1 :timestamp 0N
+                        :spec {:instr :foo :freq 200 :amp 0.2}}
+                       {:timestamp 10/9 :measure 2 :quant 3
+                        :spec {:freq [2200 :exp]}}]]
+        (mutations->envelopes mutations) =>
+        '({:envelope [200 1 -99 -99 2200 10/9 2 0]
+           :param-name :freq})))
+
+(fact "`define-synth` creates envelopes from mutaitons"
+      (let [name 'foo
+            params ['one 440]
+            ugen-form (ot/out 0 (ot/sin-osc 'one))]
+        (define-synth name params ugen-form) =>
+        ()))
+
+(def s-name 'foo)
+(def params ['one 440])
+(def ugen-form '(ot/out 0 (ot/sin-osc one)))
+
+(macroexpand-1 '(define-synth s-name params ugen-form))
+
+(define-synth s-name params ugen-form)
+(def foo 1)
+(def bar 2)
+(defmacro add [one two]
+  `(+ ~one ~two))
+(eval `(add ~foo ~bar))

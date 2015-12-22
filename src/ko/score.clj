@@ -199,9 +199,17 @@
           score
           mutations))
 
+(defn filter-mutations
+  "returns mutations that have more than just a beginning event"
+  [mutations]
+  (into {}
+        (remove (fn [[g-name mutation-list]]
+                  (empty? (rest mutation-list)))
+                mutations)))
+
 (defmacro defscore [score-name & input-score]
   (if (empty? input-score)
     []
     (let [[score mutations] (parse-score input-score)
-          score (zip-mutations score mutations)]
+          score (zip-mutations score (filter-mutations mutations))]
       `(def ~score-name ~score))))

@@ -56,11 +56,14 @@
           (conj! curves curve)
           (recur (rest remaining-snapshots) timestamp))))))
 
+(defn- get-param-keys [g-events]
+  (remove #{:instr} (->> g-events first :spec keys)))
+
 (defn mutations->envelopes
   "converts a vector of gesture states into a vector of hashes
   of the form {:param-name \"some param\" :envelope envelope}}"
   [gesture-events]
-  (let [param-keys (->> gesture-events first :spec keys)
+  (let [param-keys (get-param-keys gesture-events)
         initial (first gesture-events)
         mutation-events (rest gesture-events)]
     (for [param param-keys
@@ -89,8 +92,8 @@
         new-template (conj () new-ugen-forms param-list)]
     new-template))
 
-(defmacro define-synth [s-name params ugen-form]
-  `(ot/synth ~s-name ~params ~ugen-form))
+(defn define-synth [s-name params ugen-form]
+  (eval `(ot/synth ~s-name ~params ~ugen-form)))
 
 (defn with-mutations
   "Returns a function that plays the given synth with mutations applied"
@@ -114,7 +117,7 @@
                               " with `spec`: " spec))))
     (let [instr-name (keyword (:name instr))
           synth-args (flatten (into [] (dissoc spec :instr)))
-          synth-fn (if (second mutations)
+          synth-fn (if mutations
                      (with-mutations instr-name mutations)
                      instr)]
       #(apply synth-fn synth-args))))

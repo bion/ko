@@ -27,6 +27,10 @@
                          :timestamp 10/9}])
                '(begin :ssg :other-gesture-name {:instr test-synth, :freq 400})]}])))
 
+(facts "about `filter-mutations`"
+       (fact (let [mutations {:one [1 2 3] :two [1] :three [1 2]}]
+               (filter-mutations mutations) => {:one [1 2 3] :three [1 2]})))
+
 (ko-defsynth test-synth
              [arg 1 arg-2 2]
              (ot/out 0 (ot/sin-osc:ar 220)))
