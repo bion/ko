@@ -87,4 +87,4 @@
     (remove-from-atom-map living-gestures-map-atom g-names)))
 
 (defn play-score [score]
-  (schedule-cycle (:measures score) (ot/now)))
+  (schedule-cycle score (ot/now)))

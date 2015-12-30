@@ -2,10 +2,6 @@
   (:require [overtone.core :as ot] :reload)
   (:use [ko.gesture :only (ko-defsynth)]
         [ko.scheduling]
-        [overtone.sc dyn-vars]
-        [overtone.osc]
-        [overtone.osc.util :only (mk-osc-bundle)]
-        [overtone.sc.machinery.server connection comms]
         [ko.score :only (defscore)] :reload))
 
 (ko-defsynth test-synth
@@ -16,14 +12,14 @@
   set-beats-per-bar 4
   set-beats-per-minute 108
 
-  1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200 :amp 0.2})
-     (begin :ssg :other-gesture-name {:instr test-synth :freq 400 :amp 0.2})]
+  1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 100 :amp -12})
+     (begin :ssg :other-gesture-name {:instr test-synth :freq :bb2 :amp -16})]
 
   ;; specify envelope nodes
-  1 [(begin :ssg :another-gest {:instr test-synth :freq 1000 :amp 0.2})]
-  3 [(! :my-gesture-name {:freq [2200 :exp] :amp [0.5 :exp]})])
+  1 [(begin :ssg :another-gest {:instr test-synth :freq :g2 :amp -16})]
+  3 [(! :my-gesture-name {:freq [440 :exp] :amp [-6 :exp]})])
 
-(schedule-cycle test-score (ot/now))
+(play-score test-score)
 (ot/pp-node-tree)
 (ot/stop)
 

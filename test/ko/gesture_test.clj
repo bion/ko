@@ -34,22 +34,7 @@
         '({:envelope [200 1 -99 -99 2200 10/9 2 0]
            :param-name :freq})))
 
-(fact "`define-synth` creates envelopes from mutaitons"
-      (let [name 'foo
-            params ['one 440]
-            ugen-form (ot/out 0 (ot/sin-osc 'one))]
-        (define-synth name params ugen-form) =>
-        ()))
-
-(def s-name 'foo)
-(def params ['one 440])
-(def ugen-form '(ot/out 0 (ot/sin-osc one)))
-
-(macroexpand-1 '(define-synth s-name params ugen-form))
-
-(define-synth s-name params ugen-form)
-(def foo 1)
-(def bar 2)
-(defmacro add [one two]
-  `(+ ~one ~two))
-(eval `(add ~foo ~bar))
+(fact "`resolve-synth-args` resolves note keywords to HZ and negative numbers to amps"
+      (resolve-synth-args [:freq :Eb4
+                           :amp -12]) => [:freq 311.1269837220809
+                                          :amp 0.251188643150958])

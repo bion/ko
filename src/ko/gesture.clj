@@ -7,6 +7,21 @@
 (defn var->keyword [item]
   (keyword (name item)))
 
+(defn resolve-synth-arg [arg]
+  (cond (= clojure.lang.Keyword (type arg))
+        (ot/midi->hz (ot/note arg))
+
+        (>= 0 arg)
+        (ot/db->amp arg)
+
+        :default
+        arg))
+
+(defn resolve-synth-args [args]
+  (flatten (map (fn [[param-name param-val]]
+                  [param-name (resolve-synth-arg param-val)])
+                (partition 2 args))))
+
 (defmacro ko-defsynth
   "Define an overtone synth as per usual, but also store the
   params andbody of the synth in `ko-synth-templates`"
@@ -42,11 +57,18 @@
         levels (transient [(->> initial :spec param)])
         durs (transient [])
         curves (transient [])]
+
     (loop [remaining-snapshots snapshots
            last-timestamp start-time]
+
       (if (empty? remaining-snapshots)
-        {:param-name param
-         :envelope (apply ot/envelope (map persistent! [levels durs curves]))}
+        ;; return the envelope
+        (let [[levels durs curves] (map persistent! [levels durs curves])
+              levels (map resolve-synth-arg levels)]
+          {:param-name param
+           :envelope (apply ot/envelope levels durs curves)})
+
+        ;; keep recurring
         (let [snapshot (first remaining-snapshots)
               [level curve] (->> snapshot :spec param)
               timestamp (:timestamp snapshot)
@@ -112,11 +134,13 @@
 (defn ssg-gest
   [spec mutations]
   (let [instr (:instr spec)]
-    (if (nil? instr)
+    (if-not instr
       (throw (Exception. (str "no instr specified in `ssg` gesture"
                               " with `spec`: " spec))))
+
     (let [instr-name (keyword (:name instr))
           synth-args (flatten (into [] (dissoc spec :instr)))
+          synth-args (resolve-synth-args synth-args)
           synth-fn (if mutations
                      (with-mutations instr-name mutations)
                      instr)]

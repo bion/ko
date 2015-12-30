@@ -43,7 +43,8 @@
                     gesture (mutations g-name)]
                 (if-not gesture
                   (throw (Exception.
-                          (str "No gesture found for `!` (mutation): " g-name))))
+                          (str "No gesture found for `!` (mutation): "
+                               g-name))))
                 (update-in mutations [g-name] conj event-record)))
             mutations
             mutations-events)))
