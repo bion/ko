@@ -1,5 +1,4 @@
 (ns ko.score
-  (:require [clojure.core.match :refer [match]])
   (:use ko.scheduling)
   (:gen-class))
 

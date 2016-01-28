@@ -73,18 +73,19 @@
   "Send control messages to a running gesture.
   Messages are specified as alternating argument key value pairs"
   [g-name & rest]
-  #(let [g-nodes (@living-gestures-map-atom g-name)] ;; assumes nodes are stored here
+  #(do
      (prn (str "adjust " g-name))
-     (apply ot/ctl (apply conj g-nodes rest))))
+     (let [g-nodes (@living-gestures-map-atom g-name)] ;; assumes nodes are stored here
+       (apply ot/ctl (apply conj g-nodes rest)))))
 
 (defn finish
   "Send end message to gestures and remove from `living-gestures-map-atom`"
   [& g-names]
-  #((prn (apply str (concat ["finish "] g-names)))
-    (doseq [g-name g-names] ;; assumes nodes are stored here
-      (let [g-nodes (g-name @living-gestures-map-atom)]
-        (ot/kill g-nodes)))
-    (remove-from-atom-map living-gestures-map-atom g-names)))
+  #(do
+     (prn "finish " g-names)
+     (doseq [node (map @living-gestures-map-atom g-names)]
+       (ot/kill node))
+     (remove-from-atom-map living-gestures-map-atom g-names)))
 
 (defn play-score [score]
   (schedule-cycle score (ot/now)))
