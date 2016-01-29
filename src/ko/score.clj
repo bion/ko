@@ -108,16 +108,17 @@
       [next-remaining-score expanded-score mutations measure-num measure-timestamp])))
 
 (defn extract-normal-measure
-  [remaining-score expanded-score mutations measure-num time]
+  [remaining-score expanded-score mutations measure-num timestamp]
   (let [[next-measure
          next-remaining-score
-         next-mutations] (extract-measure remaining-score measure-num mutations time)
+         next-mutations
+         next-timestamp] (extract-measure remaining-score measure-num mutations timestamp)
 
         next-expanded-score (if (empty? next-measure)
                               expanded-score
                               (conj expanded-score next-measure))]
 
-    [next-remaining-score next-expanded-score next-mutations (inc measure-num) time]))
+    [next-remaining-score next-expanded-score next-mutations (inc measure-num) next-timestamp]))
 
 (defn extract-silent-measure
   [remaining-score expanded-score mutations measure-num timestamp]
