@@ -107,6 +107,31 @@
       (reset! global new-val)
       [next-remaining-score expanded-score mutations measure-num measure-timestamp])))
 
+(defn extract-normal-measure
+  [remaining-score expanded-score mutations measure-num time]
+  (let [[next-measure
+         next-remaining-score
+         next-mutations] (extract-measure remaining-score measure-num mutations time)
+
+        next-expanded-score (if (empty? next-measure)
+                              expanded-score
+                              (conj expanded-score next-measure))]
+
+    [next-remaining-score next-expanded-score next-mutations (inc measure-num) time]))
+
+(defn extract-silent-measure
+  [remaining-score expanded-score mutations measure-num timestamp]
+    (let [next-measure [0 []]
+          next-remaining-score (rest remaining-score)
+          next-expanded-score (conj expanded-score
+                                    next-measure)
+          next-timestamp (inc-measure-timestamp timestamp)]
+      [next-remaining-score
+       next-expanded-score
+       mutations
+       (inc measure-num)
+       next-timestamp]))
+
 (def token-handlers
   ;; can-handle? => handle pairs
   ;; handler params [score expanded-score mutations measure-num timestamp]
@@ -114,27 +139,11 @@
 
   ;; normal measure handler
   {#(number? %)
-   (fn [remaining-score expanded-score mutations measure-num time]
-     (let [[next-measure
-            next-remaining-score
-            next-mutations] (extract-measure remaining-score measure-num mutations time)
-
-           next-expanded-score (conj expanded-score next-measure)]
-       [next-remaining-score next-expanded-score next-mutations (inc measure-num) time]))
+   extract-normal-measure
 
    ;; insert one measure of silence
    #(= 'silent %)
-   (fn [remaining-score expanded-score mutations measure-num timestamp]
-     (let [next-measure [0 []]
-           next-remaining-score (rest remaining-score)
-           next-expanded-score (conj expanded-score
-                                     next-measure)
-           next-timestamp (inc-measure-timestamp timestamp)]
-       [next-remaining-score
-        next-expanded-score
-        mutations
-        (inc measure-num)
-        next-timestamp]))
+   extract-silent-measure
 
    ;; time signature
    #(= 'set-beats-per-bar %)
