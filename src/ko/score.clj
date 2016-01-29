@@ -15,6 +15,11 @@
   [g-spec measure-num quant timestamp]
   [{:measure measure-num :quant quant :timestamp timestamp :spec g-spec}])
 
+(defn resolve-spec [g-spec]
+  (cond
+    (map? g-spec) g-spec
+    :else (var-get (resolve g-spec))))
+
 (defn record-begin-events
   [measure-num quant begin-events mutations timestamp]
   (if (empty? begin-events)
@@ -22,11 +27,12 @@
     (reduce (fn [memo event]
               (let [g-name (nth event 2)
                     ;; this doesn't make sense when the gesture has no name
-                    g-spec (nth event 3)]
-                (merge memo {g-name (gesture-record g-spec
-                                                    measure-num
-                                                    quant
-                                                    timestamp)})))
+                    g-spec (resolve-spec (nth event 3))]
+                (merge memo {g-name
+                             (gesture-record g-spec
+                                             measure-num
+                                             quant
+                                             timestamp)})))
             mutations
             begin-events)))
 
@@ -35,10 +41,11 @@
     mutations
     (reduce (fn [memo event]
               (let [g-name (second event)
+                    g-spec (resolve-spec (nth event 2))
                     event-record {:timestamp timestamp
                                   :measure measure-num
                                   :quant quant
-                                  :spec (nth event 2)}
+                                  :spec g-spec}
                     gesture (mutations g-name)]
                 (if-not gesture
                   (throw (Exception.
@@ -122,16 +129,16 @@
 
 (defn extract-silent-measure
   [remaining-score expanded-score mutations measure-num timestamp]
-    (let [next-measure {0 []}
-          next-remaining-score (rest remaining-score)
-          next-expanded-score (conj expanded-score
-                                    next-measure)
-          next-timestamp (inc-measure-timestamp timestamp)]
-      [next-remaining-score
-       next-expanded-score
-       mutations
-       (inc measure-num)
-       next-timestamp]))
+  (let [next-measure {0 []}
+        next-remaining-score (rest remaining-score)
+        next-expanded-score (conj expanded-score
+                                  next-measure)
+        next-timestamp (inc-measure-timestamp timestamp)]
+    [next-remaining-score
+     next-expanded-score
+     mutations
+     (inc measure-num)
+     next-timestamp]))
 
 (def token-handlers
   ;; can-handle? => handle pairs
@@ -146,11 +153,9 @@
    #(= 'silent %)
    extract-silent-measure
 
-   ;; time signature
    #(= 'set-beats-per-bar %)
    (set-global *beats-per-bar*)
 
-   ;; tempo
    #(= 'set-beats-per-minute %)
    (set-global *beats-per-minute*)})
 
