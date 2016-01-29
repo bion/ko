@@ -14,7 +14,7 @@
 (fact "`envelope-binding-form` returns a vector for binding envelopes to vars"
       (envelope-binding-form
        [{:param-name :foo :envelope 1}
-        {:param-name :bar :envelope 2}]) => ['foo '(env-gen 1) 'bar '(env-gen 2)])
+        {:param-name :bar :envelope 2}]) => ['foo '(ot/env-gen 1) 'bar '(ot/env-gen 2)])
 
 (fact "`enveloped-param` turns mutating param and turns it into a envelope"
       (enveloped-param
@@ -22,7 +22,7 @@
        {:measure 1 :quant 1 :timestamp 1.5 :spec {:freq 100 :amp 1}}
        [{:measure 2 :quant 2.5 :timestamp 2 :spec {:freq [300 :exp]}}
         {:measure 3 :quant 1 :timestamp 4.5 :spec {:freq [200 :exp]}}])
-      => {:envelope (apply ot/envelope [[100 300 200] [0.5 2.5] [:exp :exp]])
+      => {:envelope (ot/envelope [100 300 200] [0.5 2.5] [:exp :exp])
           :param-name :freq})
 
 (fact "`mutations->envelopes` creates envelopes from mutations"

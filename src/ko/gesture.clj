@@ -66,7 +66,7 @@
         (let [[levels durs curves] (map persistent! [levels durs curves])
               levels (map resolve-synth-arg levels)]
           {:param-name param
-           :envelope (apply ot/envelope levels durs curves)})
+           :envelope (ot/envelope levels durs curves)})
 
         ;; keep recurring
         (let [snapshot (first remaining-snapshots)
