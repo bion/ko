@@ -121,7 +121,7 @@
 
 (defn extract-silent-measure
   [remaining-score expanded-score mutations measure-num timestamp]
-    (let [next-measure [0 []]
+    (let [next-measure {0 []}
           next-remaining-score (rest remaining-score)
           next-expanded-score (conj expanded-score
                                     next-measure)
