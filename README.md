@@ -59,6 +59,10 @@ the following measure.
   1 [(finish :my-gesture :next-gesture)])
 ```
 
+## Event types
+
+### `begin`
+
 `begin` currently only support one type: `:ssg` or single-synth gestures.
 Single-synth gestures take the form
 
@@ -70,6 +74,8 @@ where `spec` must be a map containing an `:instr` key specifying
 a `ko-synthdef` along with all other params to the synth. Spec
 can itself be a map, a var referring to a map, or form that when
 evaluated returns a map.
+
+### `adjust` and `!`
 
 `adjust` and `!` events control gestures as they are playing, but do so
 differently.
@@ -110,6 +116,8 @@ to
           [time-between-meas-1-beat-2-and-meas-2-beat-1 time-between-meas-2-beat-1-and-meas-2-beat-3]
           [:exp 4])
 ```
+
+## Other score elements
 
 Aside from specifying gestures, the defscore macro provides for setting
 the time signature:
