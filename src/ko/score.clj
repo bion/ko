@@ -168,10 +168,10 @@
    #(= 'silent %)
    extract-silent-measure
 
-   #(= 'set-beats-per-bar %)
+   #(= 'beats-per-bar %)
    (set-global *beats-per-bar*)
 
-   #(= 'set-beats-per-minute %)
+   #(= 'beats-per-minute %)
    (set-global *beats-per-minute*)})
 
 (defn resolve-handler [score measure-num]
