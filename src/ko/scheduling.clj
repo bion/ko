@@ -56,7 +56,18 @@
 
 ;; clear previous definition of multimethod
 (def begin nil)
-(defmulti begin "start playing a gesture"
+(defmulti begin
+  "Begin playing a gesture. `begin` events can take one
+  of several types.
+
+  Single-synth Gestures (ssg) take the form
+
+  (begin :ssg :gesture-name spec)
+
+  where `spec` must be a map containing a :instr key specifying
+  a ko-synthdef along with all other params to the synth. Spec
+  can itself be a map, a var referring to a map, or form that when
+  evaluated returns a map."
   (fn [type & args]
     type))
 

@@ -222,7 +222,58 @@
                   (empty? (rest mutation-list)))
                 mutations)))
 
-(defmacro defscore [score-name & input-score]
+(defmacro defscore
+  "Define a ko score and prepare it for playing. A basic score consists
+  of number vector pairs. Numbers indicate beats in a measure e.g. 1.5
+  is the first offbeat of the measure. The vector contains `begin`, `adjust`,
+  `finish` and `!` events to be executed at the time that corresponds with the
+  adjacent number.
+
+  E.g. The following plays two gestures, one starting on beat
+  one and the other starting the offbeat of beat two. Both end on beat one of
+  the following measure.
+
+  (defscore
+    1 [(begin :ssg :my-gesture my-gesture-spec)]
+    2.5 [(begin :ssg :next-gesture next-gesture-spec)])
+
+    1 [(finish :my-gesture :next-gesture)]
+
+  `adjust` and `!` events control gestures as they are playing, but do so
+  differently.
+
+  `adjust` is used to alter parameters of a running synth at
+  a specific time while it is playing. The following will change
+  the `amp` param of :my-gesture to -12 decibels on beat 3 of the
+  corresponding measure:
+
+  3 (adjust :my-gesture {:amp -12})
+
+  `!` is used to specify control envelope breakpoints for smooth
+  changes over the course of a gesture by calculating the time
+  difference between a gesture's `begin` and successive `!` events.
+  Unlike `alter`, `!` generates a new synthdef under the hood and does
+  not send additional OSC messages to scsynth while the score is playing.
+
+  The following begins a gesture on beat two that crescendos along an
+  exponential curve (specified by :exp) to -6 decibels on beat one of
+  the following measure before ending on beat three:
+
+  2 (begin :ssg :my-gesture {:instr test-synth :amp -24 :freq :c4})
+
+  1 (! :my-gesture {:amp [-6 :exp]})
+  3 (finish :my-gesture)
+
+  Aside from specifying gestures, the defscore macro provides for setting
+  the time signature:
+
+  set-beats-per-bar 4
+  set-beats-per-minute 80
+
+  and specifying a no events take place in a measure:
+
+  silent"
+  [score-name & input-score]
   (if (empty? input-score)
     []
     (let [[score mutations] (parse-score input-score)
