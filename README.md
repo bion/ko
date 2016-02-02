@@ -1,5 +1,5 @@
 # ko
-A composition library to aid in writing declaritive scores for [Overtone](http://overtone.github.io/).
+A composition library to aid in writing declarative scores for [Overtone](http://overtone.github.io/).
 ## Usage Example
 
 ```clojure
