@@ -1,5 +1,6 @@
 # ko
-
+Ko (as in 'co-op') is a composition library to aid in writing declaritive
+scores for Overtone.
 ## Usage Example
 
 ```clojure
