@@ -1,10 +1,9 @@
 # ko
-Ko (as in 'co-op') is a composition library to aid in writing declaritive
-scores for Overtone.
+A composition library to aid in writing declaritive scores for [Overtone](http://overtone.github.io/).
 ## Usage Example
 
 ```clojure
-;; make sure you've got overtone around
+;; bring in the essentials, currently a messy affair
 (use [ko.gesture :only (ko-defsynth)]
      [ko.scheduling :only (begin alter finish)]
      [ko.score :only (defscore)])
@@ -32,7 +31,7 @@ scores for Overtone.
   1 [(! :my-gesture {:freq [:G4 :exp]
                      :amp [-6 :exp]})
      (alter :other-gesture {:freq :C5})]
-     2 [(finish :my-gesture :other-gesture)])
+  2 [(finish :my-gesture :other-gesture)])
 
 ;; play it
 (play-score test-score)
@@ -40,35 +39,36 @@ scores for Overtone.
 
 ## Essentials
 
-Use `ko-defsynth` to define synthdefs instead of overtone's
-`defscore`. Then use `defscore` to define a score.A basic score consists
-of number vector pairs. Numbers indicate beats in a measure e.g. 1.5
-is the first offbeat of the measure. The vector contains `begin`, `adjust`,
-`finish` and `!` events to be executed at the time that corresponds with the
-adjacent number.
+Use `ko-defsynth` to define synthdefs instead of Overtone's
+`defsynth` (`ko-defsynth` was chosen so users can `use` both Overtone and Ko in the same ns).
+Then use `defscore` to define a score. A basic score consists
+of pairs of numbers and vectors. Numbers indicate beats in a measure e.g. 1.5
+is the first offbeat of the measure. Measures are inferred by numbers lower than their predecessors.
+Vectors contain `begin`, `adjust`, `finish` and `!` events to be executed at the time that corresponds with their
+corresponding number.
 
-E.g. The following plays two gestures, one starting on beat
-one and the other starting the offbeat of beat two. Both end on beat one of
+The following plays two gestures, one starting on beat
+one and the other starting on the offbeat of beat two. Both end on beat one of
 the following measure.
 
 ```clojure
 (defscore
   1 [(begin :ssg :my-gesture my-gesture-spec)]
-  2.5 [(begin :ssg :next-gesture next-gesture-spec)])
+  2.5 [(begin :ssg :next-gesture next-gesture-spec)]
 
-  1 [(finish :my-gesture :next-gesture)]
-  ```
+  1 [(finish :my-gesture :next-gesture)])
+```
 
 `adjust` and `!` events control gestures as they are playing, but do so
 differently.
 
 `adjust` is used to alter parameters of a running synth at
 a specific time while it is playing. The following will change
-the `amp` param of :my-gesture to -12 decibels on beat 3 of the
+the `amp` param of `:my-gesture` to -12 decibels on beat three of the
 corresponding measure:
 
 ```clojure
-  3 (adjust :my-gesture {:amp -12})
+3 (adjust :my-gesture {:amp -12})
 ```
 
 `!` is used to specify control envelope breakpoints for smooth
@@ -78,25 +78,36 @@ Unlike `alter`, `!` generates a new synthdef under the hood and does
 not send additional OSC messages to scsynth while the score is playing.
 
 The following begins a gesture on beat two that crescendos along an
-exponential curve (specified by :exp) to -6 decibels on beat one of
-the following measure before ending on beat three:
+exponential curve (specified by `:exp`) to -6 decibels on beat one of
+the following measure before decrescendoing to -32 decibels along a curve
+value of 4 (see SuperCollider's [env](http://doc.sccode.org/Classes/Env.html) docs
+for more info on envelope curvature) and ending on beat three:
 
 ```clojure
-  2 (begin :ssg :my-gesture {:instr test-synth :amp -24 :freq :c4})
+2 [(begin :ssg :my-gesture {:instr test-synth :amp -24 :freq :c4})]
 
-  1 (! :my-gesture {:amp [-6 :exp]})
-  3 (finish :my-gesture)
+1 [(! :my-gesture {:amp [-6 :exp]})]
+3 [(! :my-gesture {:amp [-32 4]})
+   (finish :my-gesture)]
+```
+
+The typical Overtone equivalent of this would be to define a synthdef with `freq` bound
+to
+```clojure
+(envelope (map db->amp [-24 -6 -32])
+          [time-between-meas-1-beat-2-and-meas-2-beat-1 time-between-meas-2-beat-1-and-meas-2-beat-3]
+          [:exp 4])
 ```
 
 Aside from specifying gestures, the defscore macro provides for setting
 the time signature:
 
 ```clojure
-  set-beats-per-bar 4
-  set-beats-per-minute 80
-  ```
+beats-per-bar 4
+beats-per-minute 80
+```
 
-and specifying a no events take place in a measure:
+and for notating measures in which no events occur:
 
 ```clojure
 silent
