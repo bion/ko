@@ -15,10 +15,25 @@
   [g-spec measure-num quant timestamp]
   [{:measure measure-num :quant quant :timestamp timestamp :spec g-spec}])
 
-(defn resolve-spec [g-spec]
-  (cond
-    (map? g-spec) g-spec
-    :else (var-get (resolve g-spec))))
+(defn resolve-spec
+  "Resolves symbols and evaluates lists until a map is produced or throws"
+  ([g-spec]
+   (resolve-spec g-spec 0))
+  ([g-spec depth]
+   (prn g-spec depth)
+   (if (>= depth 10)
+     (throw (Exception.
+             (str "Recursed too many times in `resolve-spec` with spec:"
+                  g-spec)))
+     (cond
+       (map? g-spec) g-spec
+       (var? g-spec) (resolve-spec (var-get g-spec) (inc depth))
+       (list? g-spec) (resolve-spec (eval g-spec) (inc depth))
+       (symbol? g-spec) (resolve-spec (resolve g-spec) (inc depth))
+
+       :else
+       (throw (Exception. (str "Unrecognized spec in `resolve-spec` "
+                               g-spec)))))))
 
 (defn record-begin-events
   [measure-num quant begin-events mutations timestamp]
