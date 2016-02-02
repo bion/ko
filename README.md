@@ -16,8 +16,8 @@ A composition library to aid in writing declaritive scores for [Overtone](http:/
 
 ;; define a score
 (defscore test-score
-  set-beats-per-bar 4
-  set-beats-per-minute 108
+  beats-per-bar 4
+  beats-per-minute 108
 
   1 [(begin :ssg :my-gesture {:instr test-synth
                               :freq :C4
