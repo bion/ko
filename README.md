@@ -59,6 +59,18 @@ the following measure.
   1 [(finish :my-gesture :next-gesture)])
 ```
 
+`begin` currently only support one type: `:ssg` or single-synth gestures.
+Single-synth gestures take the form
+
+```clojure
+(begin :ssg :gesture-name spec)
+```
+
+where `spec` must be a map containing an `:instr` key specifying
+a `ko-synthdef` along with all other params to the synth. Spec
+can itself be a map, a var referring to a map, or form that when
+evaluated returns a map.
+
 `adjust` and `!` events control gestures as they are playing, but do so
 differently.
 
