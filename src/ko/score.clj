@@ -2,8 +2,8 @@
   (:use ko.scheduling)
   (:gen-class))
 
-(def ^:dynamic *beats-per-bar* (atom nil))
-(def ^:dynamic *beats-per-minute* (atom nil))
+(def beats-per-bar (atom nil))
+(def beats-per-minute (atom nil))
 
 (defn gesture-record
   "begin event must specify inital state for all mutations
@@ -20,7 +20,6 @@
   ([g-spec]
    (resolve-spec g-spec 0))
   ([g-spec depth]
-   (prn g-spec depth)
    (if (>= depth 10)
      (throw (Exception.
              (str "Recursed too many times in `resolve-spec` with spec:"
@@ -79,13 +78,13 @@
                       (str "Unrecognized event " form)))))
 
 (defn- beat-dur []
-  (/ 60 @*beats-per-minute*))
+  (/ 60 @beats-per-minute))
 
 (defn- quant->duration [quant]
   (* (beat-dur) (- quant 1)))
 
 (defn- inc-measure-timestamp [timestamp]
-  (+ timestamp (* (beat-dur) @*beats-per-bar*)))
+  (+ timestamp (* (beat-dur) @beats-per-bar)))
 
 (defn extract-measure [score measure-num mutations measure-timestamp]
   (loop [measure {}
@@ -169,10 +168,10 @@
    extract-silent-measure
 
    #(= 'beats-per-bar %)
-   (set-global *beats-per-bar*)
+   (set-global beats-per-bar)
 
    #(= 'beats-per-minute %)
-   (set-global *beats-per-minute*)})
+   (set-global beats-per-minute)})
 
 (defn resolve-handler [score measure-num]
   (let [next-token (first score)
@@ -282,8 +281,8 @@
   Aside from specifying gestures, the defscore macro provides for setting
   the time signature:
 
-  set-beats-per-bar 4
-  set-beats-per-minute 80
+  beats-per-bar 4
+  beats-per-minute 80
 
   and specifying a no events take place in a measure:
 
