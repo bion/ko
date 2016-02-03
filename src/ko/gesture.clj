@@ -3,13 +3,25 @@
   (:gen-class))
 
 (def ko-synth-templates (atom {}))
+(def ko-bus-map (atom {}))
 (def keyword->symbol #(symbol (str (name %))))
+
 (defn var->keyword [item]
   (keyword (name item)))
+
+(defn add-bus [bus-name]
+  (let [new-bus (ot/audio-bus)]
+    (swap! ko-bus-map
+           #(assoc % bus-name new-bus))
+    new-bus))
 
 (defn resolve-synth-arg [arg]
   (cond (= clojure.lang.Keyword (type arg))
         (ot/midi->hz (ot/note arg))
+
+        (and (= java.lang.String (type arg))
+             (re-matches #".*-bus$" arg))
+        (or (@ko-bus-map arg) (add-bus arg))
 
         (>= 0 arg)
         (ot/db->amp arg)

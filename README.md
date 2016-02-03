@@ -117,6 +117,38 @@ to
           [:exp 4])
 ```
 
+### `finish`
+
+Ends a running gesture. In the case of `:ssg` gestures, simply sends a
+`\n_free` or 'node free' event to the server for the corresponding
+synth. Ending two gestures:
+
+```clojure
+1 [(finish :some-gesture-name :another-gesture-name)]
+```
+
+## Routing
+
+To route sound from one synth to any number of synths, pass a string
+ending in `-bus` for params mapped to busses. The following
+demonstrates routing the output of a synth called `:gen-saw-wave` to
+a synth called `:shared-low-pass`, which in turn routes to hardware
+output 0:
+
+```clojure
+1 [(begin :ssg :gen-saw-wave {:instr saw-wave
+                              :freq :C4
+                              :amp -12
+                              :out-bus "shared-low-pass-in-bus"})
+   (begin :ssg :shared-low-pass {:instr low-pass
+                                 :in-bus "shared-low-pass-in-bus"
+                                 :out-bus 0})]
+```
+
+Under the hood, ko looks for string arguments ending in "-bus" and
+substitutes them for audio busses. For this reason, do not end a
+string argument to a synth in `-bus` unless it's for a bus.
+
 ## Other score elements
 
 Aside from specifying gestures, the defscore macro provides for setting
