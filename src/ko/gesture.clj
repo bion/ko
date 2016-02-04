@@ -3,6 +3,7 @@
   (:gen-class))
 
 (def living-gestures-map-atom (atom {}))
+(def groups* (atom {}))
 (def ko-synth-templates (atom {}))
 (def ko-bus-map (atom {}))
 (def keyword->symbol #(symbol (str (name %))))
@@ -147,6 +148,78 @@
           [s-name params ugen-form] (ot/synth-form s-name s-template)]
       (define-synth s-name params ugen-form))))
 
+(defn- resolve-optional-ssg-begin-args [args]
+  (let [arg-count args]
+    (cond (= 2 arg-count)
+          [(second args) (first args)]
+
+          (= 1 arg-count)
+          [(first arg-count) nil])))
+
+(defn- default-group []
+  (ot/foundation-default-group))
+
+(defn- default-group-position []
+  [:after (default-group)])
+
+(defn- default-synth-position []
+  [:head (default-group)])
+
+(defn group? [obj]
+  (= overtone.sc.node.SynthGroup (type obj)))
+
+(defn- resolve-group-target [target]
+  (if (group? target) target
+      (let [target-group (@groups* target)]
+        (if-not (group? target-group)
+          (throw (Exception. (str "unrecognized group target: " target))))
+        (if-not (ot/node-live? target-group)
+          (throw (Exception. (str "group target not alive: " target))))
+
+        target-group)))
+
+(defn reset-groups! []
+  (doseq [group (vals @groups*)] (ot/node-free* group))
+  (reset! groups* {}))
+
+;; TODO
+;; make `register-groups` func that takes a tree with group
+;; names as leafs and makes it real.
+;; e.g. (register-groups [:first-group [:first-child :second-child]
+;;                       :adjacent-to-first-group])
+(defn register-group
+  "Registers a new group, allowing it to be referenced by
+  name as a position for `begin` events. If a target is
+  provided, can be either a `group` or a name of an already
+  referenced group."
+  ([group-name]
+   (register-group group-name (default-group) :head))
+
+  ([group-name target]
+   (register-group group-name target :after))
+
+  ([group-name target add-action]
+   (let [existing-group (@groups* group-name)]
+     (if (and (ot/node? existing-group) (ot/node-live? existing-group))
+       (throw (Exception. (str "group already registered with name: "
+                               group-name)))))
+
+   (let [resolved-target (resolve-group-target target)
+         new-group (ot/group group-name add-action resolved-target)]
+     (swap! groups* #(assoc % group-name new-group))
+     (println (str "registered group: " group-name))
+     new-group)))
+
+(defn- resolve-position [position]
+  (let [[add-action group-name] (if (vector? position)
+                                  position
+                                  [:head position])
+        existing-group (@groups* group-name)]
+    (if (nil? existing-group)
+      (throw (Exception. (str "no group found with name "
+                              group-name))))
+    [add-action existing-group]))
+
 ;; returns a function that when called begins playing the gesture
 ;; and returns a representation of the playing gesture
 (defn ssg-gest
@@ -182,21 +255,14 @@
   (fn [type & args]
     type))
 
-(defn- resolve-optional-args [args]
-  (let [arg-count args]
-    (cond (= 2 arg-count)
-          [(second args) (first args)]
-
-          (= 1 arg-count)
-          [(first arg-count) nil])))
-
 (defmethod begin :ssg
   [g-type g-name spec & remaining]
-  (let [[mutations position] (resolve-optional-args remaining)
-        position (or position [:head (ot/foundation-default-group)])
+  (let [[mutations position] (resolve-optional-ssg-begin-args remaining)
+        position (if position (resolve-position position)
+                     (default-group))
         g-instance (ssg-gest spec position mutations)]
     #(do
-       (prn (str "playing " g-name))
+       (println (str "playing " g-name))
        (let [g-nodes (g-instance)]
          (swap! living-gestures-map-atom
                 (fn [lgm] (assoc lgm g-name g-nodes)))))))
@@ -206,15 +272,16 @@
   Messages are specified as alternating argument key value pairs"
   [g-name & rest]
   #(do
-     (prn (str "adjust " g-name))
-     (let [g-nodes (@living-gestures-map-atom g-name)] ;; assumes nodes are stored here
+     (println (str "adjust " g-name))
+     ;; assumes nodes are stored here
+     (let [g-nodes (@living-gestures-map-atom g-name)]
        (apply ot/ctl (apply conj g-nodes rest)))))
 
 (defn finish
   "Send end message to gestures and remove from `living-gestures-map-atom`"
   [& g-names]
   #(do
-     (prn "finish " g-names)
+     (println "finish " g-names)
      (doseq [node (map @living-gestures-map-atom g-names)]
        (ot/kill node))
      (remove-from-atom-map living-gestures-map-atom g-names)))

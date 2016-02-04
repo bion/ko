@@ -1,10 +1,13 @@
 (ns ko.acceptance-test
   (:require [overtone.core :as ot] :reload)
-  (:use [ko.gesture :only (ko-defsynth begin adjust finish)]
+  (:use [ko.gesture]
         [ko.scheduling]
         [ko.score :only (defscore)] :reload))
 
-(or (ot/server-connected?) (ot/boot-server))
+(if (ot/server-connected?)
+  (do (ot/stop)
+      (reset-groups!))
+  (ot/boot-server))
 
 (ko-defsynth test-synth
              [freq 1 amp 1 bus 0]
@@ -20,31 +23,31 @@
                    src (bark-delay src 1.0 1.0 delay-width delay-scale)]
                (ot/out bus src)))
 
-(def gest-spec {:instr test-synth
-                :freq 220
-                :amp -6
-                :bus "test-bus"})
+(def source-spec {:instr test-synth
+                 :freq 220
+                 :amp -6
+                 :bus "test-bus"})
+
+(def filt-spec {:instr test-filter
+                :in-bus "test-bus"
+                :out-bus 0
+                :cutoff 100})
+
+(register-group "source")
+(register-group "filter" "source" :after)
+(ot/pp-node-tree)
 
 (defscore test-score
   beats-per-bar 4
   beats-per-minute 108
 
-  1 [(begin :ssg :filt {:instr test-filter
-                        :in-bus "test-bus"
-                        :out-bus 0
-                        :cutoff 100})
-     (begin :ssg :g-one (merge gest-spec {:freq 440}))]
-  2 [(begin :ssg :g-two {:instr bark-delay-test
-                         :freq 110
-                         :amp -36
-                         :delay-scale 1.0
-                         :delay-width 10
-                         :bus 0})]
+  1 [(begin :ssg :g-one (merge source-spec {:freq 440}) "source")
+     (begin :ssg :filt filt-spec "filter")]
 
   silent
 
   1 [(! :filt {:cutoff [10000 :exp]})]
-  2 [(finish :g-one :g-two)])
+  2 [(finish :g-one :filt)])
 
 (clojure.pprint/pprint test-score)
 (play-score test-score)

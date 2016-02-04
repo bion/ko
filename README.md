@@ -39,17 +39,18 @@ A composition library to aid in writing declarative scores for [Overtone](http:/
 
 ## Essentials
 
-Use `ko-defsynth` to define synthdefs instead of Overtone's
-`defsynth` (`ko-defsynth` was chosen so users can `use` both Overtone and Ko in the same ns).
-Then use `defscore` to define a score. A basic score consists
-of pairs of numbers and vectors. Numbers indicate beats in a measure e.g. 1.5
-is the first offbeat of the measure. Measures are inferred by numbers lower than their predecessors.
-Vectors contain `begin`, `adjust`, `finish` and `!` events to be executed at the time that corresponds with their
-corresponding number.
+Use `ko-defsynth` to define synthdefs instead of Overtone's `defsynth`
+(`ko-defsynth` was chosen so users can `use` both Overtone and Ko in
+the same ns).  Then use `defscore` to define a score. A basic score
+consists of pairs of numbers and vectors. Numbers indicate beats in a
+measure e.g. 1.5 is the first offbeat of the measure. Measures are
+inferred by numbers lower than their predecessors.  Vectors contain
+`begin`, `adjust`, `finish` and `!` actions to be executed at the time
+that corresponds with their corresponding number.
 
-The following plays two gestures, one starting on beat
-one and the other starting on the offbeat of beat two. Both end on beat one of
-the following measure.
+The following plays two gestures, one starting on beat one and the
+other starting on the offbeat of beat two. Both end on beat one of the
+following measure.
 
 ```clojure
 (defscore
@@ -59,7 +60,7 @@ the following measure.
   1 [(finish :my-gesture :next-gesture)])
 ```
 
-## Event types
+## Action types
 
 ### `begin`
 
@@ -77,7 +78,7 @@ evaluated returns a map.
 
 ### `adjust` and `!`
 
-`adjust` and `!` events control gestures as they are playing, but do so
+`adjust` and `!` actions control gestures as they are playing, but do so
 differently.
 
 `adjust` is used to alter parameters of a running synth at
@@ -91,7 +92,7 @@ corresponding measure:
 
 `!` is used to specify control envelope breakpoints for smooth
 changes over the course of a gesture by calculating the time
-difference between a gesture's `begin` and successive `!` events.
+difference between a gesture's `begin` and successive `!` actions.
 Unlike `alter`, `!` generates a new synthdef under the hood and does
 not send additional OSC messages to scsynth while the score is playing.
 
@@ -120,7 +121,7 @@ to
 ### `finish`
 
 Ends a running gesture. In the case of `:ssg` gestures, simply sends a
-`\n_free` or 'node free' event to the server for the corresponding
+`\n_free` or 'node free' message to the server for the corresponding
 synth. Ending two gestures:
 
 ```clojure
@@ -149,6 +150,52 @@ Under the hood, ko looks for string arguments ending in "-bus" and
 substitutes them for audio busses. For this reason, do not end a
 string argument to a synth in `-bus` unless it's for a bus.
 
+## Synth node ordering
+
+If no target is specified for a `begin` action, it will be added to
+the head of the "Overtone Default" group. This isn't ideal for even
+simple routing schemas that rely on sources and filters to be in a
+specific order. To explicitly order synth nodes, first use
+`register-group` to specifiy a graph of groups, then reference the
+desired target group by name in the `begin` action.
+
+To create a group named `"source"` at the head of the "Overtone
+Default", and then a group called `"filter"` directly after it.
+
+```clojure
+;; single-arity adds to head of "Overtone Default"
+(register-group "source")
+
+;; two-arity adds after the second arg
+(register-group "filter" "source")
+
+(overtone/pprint-node-tree)
+;; =>
+;;  --snip--
+;;    {:type :group,
+;;     :name "Overtone Default"
+;;     :id 76,
+;;     :children
+;;     ({:type :group, :id 110, :name "source", :children nil}
+;;      {:type :group, :id 111, :name "filter", :children nil})}
+;;  --snip--
+```
+
+To specify `begin` actions for a source and filter, each targeting
+the head of their appropriate group:
+
+```clojure
+1 [(begin :ssg :g-one source-spec "source")
+   (begin :ssg :filt filt-spec "filter")]
+```
+
+Add-actions can also be specified:
+
+```clojure
+1 [(begin :ssg :g-one source-spec [:tail "source"])
+   (begin :ssg :filt filt-spec [:head "filter"])]
+```
+
 ## Other score elements
 
 Aside from specifying gestures, the defscore macro provides for setting
@@ -159,7 +206,7 @@ beats-per-bar 4
 beats-per-minute 80
 ```
 
-and for notating measures in which no events occur:
+and for notating measures in which no actions occur:
 
 ```clojure
 silent
