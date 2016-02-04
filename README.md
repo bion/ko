@@ -1,11 +1,13 @@
 # ko
-A composition library to aid in writing declarative scores for [Overtone](http://overtone.github.io/).
+
+Declarative scores for [Overtone](http://overtone.github.io/).
+
 ## Usage Example
 
 ```clojure
 ;; bring in the essentials, currently a messy affair
-(use [ko.gesture :only (ko-defsynth)]
-     [ko.scheduling :only (begin alter finish)]
+(use [ko.gesture]
+     [ko.scheduling :only (play-score)]
      [ko.score :only (defscore)])
 (require [overtone.core :as ot])
 
@@ -37,14 +39,14 @@ A composition library to aid in writing declarative scores for [Overtone](http:/
 (play-score test-score)
 ```
 
-## Essentials
+## Basic Usage
 
 Use `ko-defsynth` to define synthdefs instead of Overtone's `defsynth`
 (`ko-defsynth` was chosen so users can `use` both Overtone and Ko in
-the same ns).  Then use `defscore` to define a score. A basic score
+the same ns). Then use `defscore` to define a score. A basic score
 consists of pairs of numbers and vectors. Numbers indicate beats in a
 measure e.g. 1.5 is the first offbeat of the measure. Measures are
-inferred by numbers lower than their predecessors.  Vectors contain
+inferred by numbers lower than their predecessors. Vectors contain
 `begin`, `adjust`, `finish` and `!` actions to be executed at the time
 that corresponds with their corresponding number.
 
@@ -60,7 +62,7 @@ following measure.
   1 [(finish :my-gesture :next-gesture)])
 ```
 
-## Action types
+## Actions
 
 ### `begin`
 
@@ -146,7 +148,7 @@ output 0:
                                  :out-bus 0})]
 ```
 
-Under the hood, ko looks for string arguments ending in "-bus" and
+Under the hood, Ko looks for string arguments ending in `-bus` and
 substitutes them for audio busses. For this reason, do not end a
 string argument to a synth in `-bus` unless it's for a bus.
 
@@ -159,8 +161,9 @@ specific order. To explicitly order synth nodes, first use
 `register-group` to specifiy a graph of groups, then reference the
 desired target group by name in the `begin` action.
 
-To create a group named `"source"` at the head of the "Overtone
-Default", and then a group called `"filter"` directly after it.
+Create a group named `"source"` at the head of the "Overtone
+Default", a group called `"filter"` directly after it, then a
+group `middling` in between the two:
 
 ```clojure
 ;; single-arity adds to head of "Overtone Default"
@@ -168,6 +171,9 @@ Default", and then a group called `"filter"` directly after it.
 
 ;; two-arity adds after the second arg
 (register-group "filter" "source")
+
+;; three-arity specifies add-action
+(register-group "middling" "filter" :before)
 
 (overtone/pprint-node-tree)
 ;; =>
@@ -177,11 +183,12 @@ Default", and then a group called `"filter"` directly after it.
 ;;     :id 76,
 ;;     :children
 ;;     ({:type :group, :id 110, :name "source", :children nil}
+;;      {:type :group, :id 112, :name "middling", :children nil}
 ;;      {:type :group, :id 111, :name "filter", :children nil})}
 ;;  --snip--
 ```
 
-To specify `begin` actions for a source and filter, each targeting
+Specify `begin` actions for a source and filter, each targeting
 the head of their appropriate group:
 
 ```clojure
@@ -189,11 +196,17 @@ the head of their appropriate group:
    (begin :ssg :filt filt-spec "filter")]
 ```
 
-Add-actions can also be specified:
+Additionally specify add-actions:
 
 ```clojure
 1 [(begin :ssg :g-one source-spec [:tail "source"])
-   (begin :ssg :filt filt-spec [:head "filter"])]
+(begin :ssg :filt filt-spec [:head "filter"])]
+```
+
+Remove all registered groups:
+
+```clojure
+(reset-groups!)
 ```
 
 ## Other score elements
@@ -211,3 +224,7 @@ and for notating measures in which no actions occur:
 ```clojure
 silent
 ```
+
+## Similar projects
+
+* [leipzig](https://github.com/ctford/leipzig/)
