@@ -13,7 +13,11 @@
       {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [300 :exp]}}
       {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq [200 :exp]}}]}"
   [g-spec measure-num quant timestamp]
-  [{:measure measure-num :quant quant :timestamp timestamp :spec g-spec}])
+  (let [begin-event {:measure measure-num
+                     :quant quant
+                     :timestamp timestamp
+                     :spec g-spec}]
+    (with-meta [begin-event] {:arg-type :mutations})))
 
 (defn resolve-spec
   "Resolves symbols and evaluates lists until a map is produced or throws"
@@ -86,6 +90,10 @@
 (defn- inc-measure-timestamp [timestamp]
   (+ timestamp (* (beat-dur) @beats-per-bar)))
 
+(defn- add-measure-to-score [score measure]
+  (let [metadata {:beat-dur (beat-dur) :beats-per-bar @beats-per-bar}]
+    (conj score (with-meta measure metadata))))
+
 (defn extract-measure [score measure-num mutations measure-timestamp]
   (loop [measure {}
          remaining-score score
@@ -133,20 +141,27 @@
   (let [[next-measure
          next-remaining-score
          next-mutations
-         next-timestamp] (extract-measure remaining-score measure-num mutations timestamp)
+         next-timestamp] (extract-measure remaining-score
+                                          measure-num
+                                          mutations
+                                          timestamp)
 
         next-expanded-score (if (empty? next-measure)
                               expanded-score
-                              (conj expanded-score next-measure))]
+                              (add-measure-to-score expanded-score next-measure))]
 
-    [next-remaining-score next-expanded-score next-mutations (inc measure-num) next-timestamp]))
+    [next-remaining-score
+     next-expanded-score
+     next-mutations
+     (inc measure-num)
+     next-timestamp]))
 
 (defn extract-silent-measure
   [remaining-score expanded-score mutations measure-num timestamp]
   (let [next-measure {0 []}
         next-remaining-score (rest remaining-score)
-        next-expanded-score (conj expanded-score
-                                  next-measure)
+        next-expanded-score (add-measure-to-score expanded-score
+                                                  next-measure)
         next-timestamp (inc-measure-timestamp timestamp)]
     [next-remaining-score
      next-expanded-score
@@ -211,7 +226,9 @@
                next-timestamp)))))
 
 (defn zip-mutations
-  "appends matching mutations to begin events in `score`"
+  "Appends matching mutations to begin events in `score`
+  all events will end with either a list of mutations or
+  an empty vector."
   [score mutations]
   (reduce (fn [updated-score [g-name g-mutation-list]]
             (let [{:keys [measure quant]} (first g-mutation-list)]
@@ -223,7 +240,7 @@
                                    (if (and (= 'begin (first event))
                                             (= g-name (nth event 2)))
                                      (concat event `(~g-mutation-list))
-                                     event))
+                                     (concat event [])))
                                  events))))))
           score
           mutations))

@@ -2,9 +2,15 @@
   [:require [overtone.core :as ot]]
   (:gen-class))
 
+(def living-gestures-map-atom (atom {}))
 (def ko-synth-templates (atom {}))
 (def ko-bus-map (atom {}))
 (def keyword->symbol #(symbol (str (name %))))
+
+(defn remove-from-atom-map [atom-map k]
+  (swap! atom-map
+         (fn [atom-map-val]
+           (apply dissoc (into [atom-map-val] k)))))
 
 (defn var->keyword [item]
   (keyword (name item)))
@@ -144,7 +150,7 @@
 ;; returns a function that when called begins playing the gesture
 ;; and returns a representation of the playing gesture
 (defn ssg-gest
-  [spec mutations]
+  [spec position mutations]
   (let [instr (:instr spec)]
     (if-not instr
       (throw (Exception. (str "no instr specified in `ssg` gesture"
@@ -153,7 +159,62 @@
     (let [instr-name (keyword (:name instr))
           synth-args (flatten (into [] (dissoc spec :instr)))
           synth-args (resolve-synth-args synth-args)
-          synth-fn (if mutations
-                     (with-mutations instr-name mutations)
-                     instr)]
+          synth-args (conj synth-args position)
+          synth-fn (if (empty? mutations)
+                     instr
+                     (with-mutations instr-name mutations))]
       #(apply synth-fn synth-args))))
+
+;; clear previous definition of multimethod
+(def begin nil)
+(defmulti begin
+  "Begin playing a gesture. `begin` events can take one
+  of several types.
+
+  Single-synth Gestures (ssg) take the form
+
+  (begin :ssg :gesture-name spec)
+
+  where `spec` must be a map containing a :instr key specifying
+  a ko-synthdef along with all other params to the synth. Spec
+  can itself be a map, a var referring to a map, or form that when
+  evaluated returns a map."
+  (fn [type & args]
+    type))
+
+(defn- resolve-optional-args [args]
+  (let [arg-count args]
+    (cond (= 2 arg-count)
+          [(second args) (first args)]
+
+          (= 1 arg-count)
+          [(first arg-count) nil])))
+
+(defmethod begin :ssg
+  [g-type g-name spec & remaining]
+  (let [[mutations position] (resolve-optional-args remaining)
+        position (or position [:head (ot/foundation-default-group)])
+        g-instance (ssg-gest spec position mutations)]
+    #(do
+       (prn (str "playing " g-name))
+       (let [g-nodes (g-instance)]
+         (swap! living-gestures-map-atom
+                (fn [lgm] (assoc lgm g-name g-nodes)))))))
+
+(defn adjust
+  "Send control messages to a running gesture.
+  Messages are specified as alternating argument key value pairs"
+  [g-name & rest]
+  #(do
+     (prn (str "adjust " g-name))
+     (let [g-nodes (@living-gestures-map-atom g-name)] ;; assumes nodes are stored here
+       (apply ot/ctl (apply conj g-nodes rest)))))
+
+(defn finish
+  "Send end message to gestures and remove from `living-gestures-map-atom`"
+  [& g-names]
+  #(do
+     (prn "finish " g-names)
+     (doseq [node (map @living-gestures-map-atom g-names)]
+       (ot/kill node))
+     (remove-from-atom-map living-gestures-map-atom g-names)))

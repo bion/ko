@@ -1,24 +1,52 @@
 (ns ko.acceptance-test
   (:require [overtone.core :as ot] :reload)
-  (:use [ko.gesture :only (ko-defsynth)]
+  (:use [ko.gesture :only (ko-defsynth begin adjust finish)]
         [ko.scheduling]
         [ko.score :only (defscore)] :reload))
 
+(or (ot/server-connected?) (ot/boot-server))
+
 (ko-defsynth test-synth
-             [freq 1 amp 1]
-             (ot/out 0 (* (ot/sin-osc freq) amp)))
+             [freq 1 amp 1 bus 0]
+             (ot/out bus (* (ot/saw freq) amp)))
+
+(ko-defsynth test-filter
+             [in-bus 8 out-bus 0 cutoff 440]
+             (ot/out out-bus (ot/lpf (ot/in in-bus) cutoff)))
+
+(ko-defsynth bark-delay-test
+             [bus 0 freq 220 amp 0.5 delay-scale 1.0 delay-width 1.0]
+             (let [src (* (ot/sin-osc freq) amp)
+                   src (bark-delay src 1.0 1.0 delay-width delay-scale)]
+               (ot/out bus src)))
+
+(def gest-spec {:instr test-synth
+                :freq 220
+                :amp -6
+                :bus "test-bus"})
 
 (defscore test-score
-  set-beats-per-bar 4
-  set-beats-per-minute 108
+  beats-per-bar 4
+  beats-per-minute 108
 
-  1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 100 :amp -12})
-     (begin :ssg :other-gesture-name {:instr test-synth :freq :bb2 :amp -16})]
+  1 [(begin :ssg :filt {:instr test-filter
+                        :in-bus "test-bus"
+                        :out-bus 0
+                        :cutoff 100})
+     (begin :ssg :g-one (merge gest-spec {:freq 440}))]
+  2 [(begin :ssg :g-two {:instr bark-delay-test
+                         :freq 110
+                         :amp -36
+                         :delay-scale 1.0
+                         :delay-width 10
+                         :bus 0})]
 
-  ;; specify envelope nodes
-  1 [(begin :ssg :another-gest {:instr test-synth :freq :g2 :amp -16})]
-  3 [(! :my-gesture-name {:freq [440 :exp] :amp [-6 :exp]})])
+  silent
 
+  1 [(! :filt {:cutoff [10000 :exp]})]
+  2 [(finish :g-one :g-two)])
+
+(clojure.pprint/pprint test-score)
 (play-score test-score)
 (ot/pp-node-tree)
 (ot/stop)
@@ -27,9 +55,11 @@
   [in {:default 0 :doc "the input signal"}
    maxdelay {:default 1.0 :doc "the maximum delay time"}
    freqmul {:default 1.0 :doc "scale center frequencies"}
-   width {:default 1.0 :doc "scale filter widths"}]
+   width {:default 1.0 :doc "scale filter widths"}
+   delay-scale {:default 1.0 :doc "scale delay times"}]
   (:ar
    (let [deltimes (vec (for [x (range 25)] (+ 0.2 (rand 0.3))))
+         deltimes (* delay-scale (- deltimes (ot/control-dur:ir)))
          feedback (vec (for [x (range 25)] (+ 0.7 (rand 0.2))))
          rq [1.16 0.38666666666667 0.232 0.16571428571429
              0.14177777777778 0.12210526315789 0.116 0.10357142857143
@@ -44,7 +74,7 @@
          filterbank (ot/b-band-pass (+ in (ot/local-in:ar 1))
                                     (* cf freqmul)
                                     (* rq width))
-         delays (ot/delay-n filterbank maxdelay (- deltimes (ot/control-dur:ir)))]
+         delays (ot/delay-c filterbank maxdelay deltimes)]
      (ot/local-out:ar (ot/sum (* delays feedback)))
      (ot/sum delays)))
   (:default :ar))
