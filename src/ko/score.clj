@@ -2,8 +2,8 @@
   (:use ko.scheduling)
   (:gen-class))
 
-(def beats-per-bar (atom nil))
-(def beats-per-minute (atom nil))
+(def beats-per-bar* (atom nil))
+(def beats-per-minute* (atom nil))
 
 (defn gesture-record
   "begin event must specify inital state for all mutations
@@ -82,16 +82,16 @@
                       (str "Unrecognized event " form)))))
 
 (defn- beat-dur []
-  (/ 60 @beats-per-minute))
+  (/ 60 @beats-per-minute*))
 
 (defn- quant->duration [quant]
   (* (beat-dur) (- quant 1)))
 
 (defn- inc-measure-timestamp [timestamp]
-  (+ timestamp (* (beat-dur) @beats-per-bar)))
+  (+ timestamp (* (beat-dur) @beats-per-bar*)))
 
 (defn- add-measure-to-score [score measure]
-  (let [metadata {:beat-dur (beat-dur) :beats-per-bar @beats-per-bar}]
+  (let [metadata {:beat-dur (beat-dur) :beats-per-bar @beats-per-bar*}]
     (conj score (with-meta measure metadata))))
 
 (defn extract-measure [score measure-num mutations measure-timestamp]
@@ -183,10 +183,10 @@
    extract-silent-measure
 
    #(= 'beats-per-bar %)
-   (set-global beats-per-bar)
+   (set-global beats-per-bar*)
 
    #(= 'beats-per-minute %)
-   (set-global beats-per-minute)})
+   (set-global beats-per-minute*)})
 
 (defn resolve-handler [score measure-num]
   (let [next-token (first score)
