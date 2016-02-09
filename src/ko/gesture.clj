@@ -2,10 +2,11 @@
   [:require [overtone.core :as ot]]
   (:gen-class))
 
-(def living-gestures-map-atom (atom {}))
+(def living-gestures* (atom {}))
 (def groups* (atom {}))
-(def ko-synth-templates (atom {}))
-(def ko-bus-map (atom {}))
+(def synth-templates* (atom {}))
+(def busses* (atom {}))
+
 (def keyword->symbol #(symbol (str (name %))))
 
 (defn remove-from-atom-map [atom-map k]
@@ -18,7 +19,7 @@
 
 (defn add-bus [bus-name]
   (let [new-bus (ot/audio-bus)]
-    (swap! ko-bus-map
+    (swap! busses*
            #(assoc % bus-name new-bus))
     new-bus))
 
@@ -28,7 +29,7 @@
 
         (and (= java.lang.String (type arg))
              (re-matches #".*-bus$" arg))
-        (or (@ko-bus-map arg) (add-bus arg))
+        (or (@busses* arg) (add-bus arg))
 
         (>= 0 arg)
         (ot/db->amp arg)
@@ -43,12 +44,12 @@
 
 (defmacro ko-defsynth
   "Define an overtone synth as per usual, but also store the
-  params andbody of the synth in `ko-synth-templates`"
+  params andbody of the synth in `synth-templates*`"
   [s-name args body]
   (let [kword-s-name (keyword s-name)]
     `(do
        (ot/defsynth ~s-name ~args ~body)
-       (swap! ko-synth-templates
+       (swap! synth-templates*
               #(assoc % ~kword-s-name '(~args ~body))))))
 
 (defn remove-param [param-list removed-param-names]
@@ -139,7 +140,7 @@
 (defn with-mutations
   "Returns a function that plays the given synth with mutations applied"
   [instr-name mutations]
-  (let [s-template (instr-name @ko-synth-templates)]
+  (let [s-template (instr-name @synth-templates*)]
     (if-not s-template
       (throw (Exception. (str "no synth template found for: " instr-name))))
 
@@ -264,7 +265,7 @@
     #(do
        (println (str "playing " g-name))
        (let [g-nodes (g-instance)]
-         (swap! living-gestures-map-atom
+         (swap! living-gestures*
                 (fn [lgm] (assoc lgm g-name g-nodes)))))))
 
 (defn adjust
@@ -274,14 +275,14 @@
   #(do
      (println (str "adjust " g-name))
      ;; assumes nodes are stored here
-     (let [g-nodes (@living-gestures-map-atom g-name)]
+     (let [g-nodes (@living-gestures* g-name)]
        (apply ot/ctl (apply conj g-nodes rest)))))
 
 (defn finish
-  "Send end message to gestures and remove from `living-gestures-map-atom`"
+  "Send end message to gestures and remove from `living-gestures*`"
   [& g-names]
   #(do
      (println "finish " g-names)
-     (doseq [node (map @living-gestures-map-atom g-names)]
+     (doseq [node (map @living-gestures* g-names)]
        (ot/kill node))
-     (remove-from-atom-map living-gestures-map-atom g-names)))
+     (remove-from-atom-map living-gestures* g-names)))
