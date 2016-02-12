@@ -25,7 +25,7 @@
                          :spec [:spec {:instr test-synth, :freq 200}]}
                         {:spec {:freq [220 :exp], :amp [0.1 :exp]},
                          :timestamp 10/9}])
-               '(begin :ssg :other-gesture-name {:instr test-synth, :freq 400})]}])))
+               '(begin :ssg :other-gesture-name {:instr test-synth, :freq 400} [])]}])))
 
 (facts "about `filter-mutations`"
        (fact (let [mutations {:one [1 2 3] :two [1] :three [1 2]}]

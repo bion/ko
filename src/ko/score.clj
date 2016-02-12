@@ -240,7 +240,7 @@
                                    (if (and (= 'begin (first event))
                                             (= g-name (nth event 2)))
                                      (concat event `(~g-mutation-list))
-                                     (concat event [])))
+                                     (concat event '([]))))
                                  events))))))
           score
           mutations))

@@ -150,12 +150,12 @@
       (define-synth s-name params ugen-form))))
 
 (defn- resolve-optional-ssg-begin-args [args]
-  (let [arg-count args]
+  (let [arg-count (count args)]
     (cond (= 2 arg-count)
           [(second args) (first args)]
 
           (= 1 arg-count)
-          [(first arg-count) nil])))
+          [(first args) nil])))
 
 (defn- default-group []
   (ot/foundation-default-group))

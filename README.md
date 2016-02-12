@@ -66,7 +66,7 @@ following measure.
 
 ### `begin`
 
-`begin` currently only support one type: `:ssg` or single-synth gestures.
+`begin` currently only supports one type: `:ssg` or single-synth gestures.
 Single-synth gestures take the form
 
 ```clojure
