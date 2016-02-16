@@ -2,8 +2,8 @@
   (:use ko.scheduling)
   (:gen-class))
 
-(def beats-per-bar* (atom nil))
-(def beats-per-minute* (atom nil))
+(defonce beats-per-bar* (atom nil))
+(defonce beats-per-minute* (atom nil))
 
 (defn gesture-record
   "begin event must specify inital state for all mutations
@@ -75,9 +75,12 @@
 
 (defn event-type [form]
   (cond (seq? form)
-        (cond (= '! (first form)) :mutation-events
-              (= 'begin (first form)) :begin-events
-              :else :basic-scheduled-events)
+        (let [first-element (first form)]
+          (cond (= '! first-element) :mutation-events
+                (= 'begin first-element) :begin-events
+                :else :basic-scheduled-events))
+
+        (fn? form) :basic-scheduled-events
         :else (throw (Exception.
                       (str "Unrecognized event " form)))))
 

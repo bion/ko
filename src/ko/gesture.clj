@@ -2,10 +2,10 @@
   [:require [overtone.core :as ot]]
   (:gen-class))
 
-(def living-gestures* (atom {}))
-(def groups* (atom {}))
-(def synth-templates* (atom {}))
-(def busses* (atom {}))
+(defonce living-gestures* (atom {}))
+(defonce groups* (atom {}))
+(defonce synth-templates* (atom {}))
+(defonce busses* (atom {}))
 
 (def keyword->symbol #(symbol (str (name %))))
 
