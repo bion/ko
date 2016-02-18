@@ -23,6 +23,15 @@
       (ot/at timestamp
              (doseq [event events] (event))))))
 
+(defn resolve-next-index [score index]
+  (let [next-index (inc index)
+        {:keys [labels jumps]} (meta score)
+        jump (get jumps next-index)]
+    (if jump
+      (let [{:keys [label should-jump?]} jump]
+        (if (should-jump?) (labels label) next-index))
+      next-index)))
+
 (defn- schedule-cycle
   "Implements the temporal recursion pattern (see `(doc apply-at)`). Recurses
   through provided sequence of measures, scheduling each one beat before it begins
@@ -33,7 +42,7 @@
         beat-dur-ms (calc-beat-dur-ms beat-dur)
         next-bar-timestamp (+ current-time beat-dur-ms)
         next-cycle-timestamp (+ current-time (* beat-dur-ms beats-per-bar))
-        next-measure-index (inc measure-index)]
+        next-measure-index (resolve-next-index measures measure-index)]
 
     (schedule-measure measure next-bar-timestamp beat-dur)
 
