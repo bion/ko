@@ -27,20 +27,20 @@
   "Implements the temporal recursion pattern (see `(doc apply-at)`). Recurses
   through provided sequence of measures, scheduling each one beat before it begins
   until all of them have been scheduled."
-  [measures current-time]
-  (let [next-measure (first measures)
-        remaining-measures (rest measures)
-        {:keys [beat-dur beats-per-bar]} (meta next-measure)
+  [measures measure-index current-time]
+  (let [measure (measures measure-index)
+        {:keys [beat-dur beats-per-bar]} (meta measure)
         beat-dur-ms (calc-beat-dur-ms beat-dur)
         next-bar-timestamp (+ current-time beat-dur-ms)
-        next-cycle-timestamp (+ current-time (* beat-dur-ms beats-per-bar))]
+        next-cycle-timestamp (+ current-time (* beat-dur-ms beats-per-bar))
+        next-measure-index (inc measure-index)]
 
-    (schedule-measure next-measure next-bar-timestamp beat-dur)
+    (schedule-measure measure next-bar-timestamp beat-dur)
 
-    (if-not (empty? remaining-measures)
+    (if (get measures next-measure-index)
       (ot/apply-at next-cycle-timestamp
                    schedule-cycle
-                   [remaining-measures next-cycle-timestamp]))))
+                   [measures (inc next-measure-index) next-cycle-timestamp]))))
 
 (defn play-score [score]
-  (schedule-cycle score (ot/now)))
+  (schedule-cycle score 0 (ot/now)))
