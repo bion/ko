@@ -4,6 +4,11 @@
 
 (defonce beats-per-bar* (atom nil))
 (defonce beats-per-minute* (atom nil))
+(defonce jump-data* (atom nil))
+(defn reset-jump-data*! []
+  (reset! jump-data* {:labels {} :jumps {}}))
+
+(reset-jump-data*!)
 
 (defn gesture-record
   "begin event must specify inital state for all mutations
@@ -172,24 +177,47 @@
      (inc measure-num)
      next-timestamp]))
 
+(defn set-label
+  [remaining-score expanded-score mutations measure-num timestamp]
+  (let [label (second remaining-score)
+        next-remaining-score (-> remaining-score rest rest)]
+    (swap! jump-data*
+           (fn [md] (update-in md [:labels]
+                               ;; dec measure-num to get index
+                               #(assoc % label (dec measure-num)))))
+    [next-remaining-score expanded-score mutations measure-num timestamp]))
+
+(defn jump-to-label
+  [should-jump? remaining-score expanded-score mutations measure-num timestamp]
+  (let [next-remaining-score (-> remaining-score rest rest)
+        label (second remaining-score)
+        jump {:label label
+              :should-jump? should-jump?}]
+
+    (swap! jump-data*
+           (fn [md] (update-in md [:jumps]
+                               ;; dec measure-num to get index
+                               #(assoc % (dec measure-num) jump))))
+
+    [next-remaining-score expanded-score mutations measure-num timestamp]))
+
+(defn true-for-n [times]
+  (let [call-count* (atom 0)]
+    #(do
+       (reset! call-count* (inc @call-count*))
+       (<= @call-count* times))))
+
 (def token-handlers
   ;; can-handle? => handle pairs
   ;; handler params [score expanded-score mutations measure-num timestamp]
   ;; returns [next-remaining-score next-expanded-score next-mutations next-measure-num next-timestamp]
 
-  ;; normal measure handler
-  {#(number? %)
-   extract-normal-measure
-
-   ;; insert one measure of silence
-   #(= 'silent %)
-   extract-silent-measure
-
-   #(= 'beats-per-bar %)
-   (set-global beats-per-bar*)
-
-   #(= 'beats-per-minute %)
-   (set-global beats-per-minute*)})
+  {#(number? %) extract-normal-measure ;; normal measure handler
+   #(= 'label %) set-label
+   #(= 'jump-to %) (partial jump-to-label (true-for-n 1))
+   #(= 'silent %) extract-silent-measure ;; insert one measure of silence
+   #(= 'beats-per-bar %) (set-global beats-per-bar*)
+   #(= 'beats-per-minute %) (set-global beats-per-minute*)})
 
 (defn resolve-handler [score measure-num]
   (let [next-token (first score)
@@ -221,7 +249,9 @@
                                     timestamp)]
 
       (if (empty? next-remaining-score)
-        [next-expanded-score next-mutations]
+        (let [jump-data @jump-data*]
+          (reset-jump-data*!)
+          [next-expanded-score next-mutations jump-data])
         (recur next-expanded-score
                next-mutations
                next-remaining-score
@@ -310,6 +340,8 @@
   [score-name & input-score]
   (if (empty? input-score)
     []
-    (let [[score mutations] (parse-score input-score)
-          score (zip-mutations score (filter-mutations mutations))]
+    (let [[score mutations jump-data] (parse-score input-score)
+          score (zip-mutations score (filter-mutations mutations))
+          score (with-meta score jump-data)]
+      (reset! jump-data* {:labels {} :jumps {}})
       `(def ~score-name ~score))))

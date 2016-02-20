@@ -5,6 +5,9 @@
         ko.scheduling)
   (:require [overtone.core :as ot]))
 
+(if-not (ot/server-connected?)
+  (ot/boot-server))
+
 (def test-parsed-score
   [{1 ['(begin :ssg :my-gesture-name {:instr test-synth, :freq 200})
        '(begin :ssg :other-gesture-name {:instr test-synth, :freq 400})]}])
@@ -34,53 +37,51 @@
 (ko-defsynth test-synth
              [arg 1 arg-2 2]
              (ot/out 0 (ot/sin-osc:ar 220)))
-(facts "about `defscore`"
-       (fact
-        (defscore test-score
-          set-beats-per-bar 4
-          set-beats-per-minute 108
 
-          1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
-             (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
+(facts "about `parse-score`"
+       (let [[actions mutations jumps]
+             (parse-score
+              '(
+                beats-per-bar 4
+                beats-per-minute 108
 
-          ;; specify envelope nodes
-          3 [(! :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]) =>
-        [[{1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200}
-                     [{:timestamp 10/9 :spec {:freq [220 :exp] :amp [0.1 :exp]}}])
-              (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]}]]))
+                label :one
+                1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
+                   (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
 
-(comment
-  (defscore my-score
-    label :beginning
-    set-beats-per-bar 4
-    set-beats-per-minute 108
+                jump-to :one
+                3 [(! :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
+             expected-actions '[{1
+                                 [(begin :ssg :other-gesture-name
+                                         {:freq 400, :instr test-synth})
+                                  (begin :ssg :my-gesture-name
+                                         {:freq 200, :instr test-synth})]}]
+             expected-mutations '{:my-gesture-name
+                                  [{:measure 1,
+                                    :quant 1,
+                                    :spec {:freq 200, :instr test-synth},
+                                    :timestamp 0N}
+                                   {:measure 2,
+                                    :quant 3,
+                                    :spec {:amp [0.1 :exp], :freq [220 :exp]},
+                                    :timestamp 10/3}],
+                                  :other-gesture-name
+                                  [{:measure 1,
+                                    :quant 1,
+                                    :spec {:freq 400, :instr test-synth},
+                                    :timestamp 0N}]}
+             expected-jumps (just
+                             {:jumps
+                              (just {1 (just {:label :one :should-jump? fn?})})
+                              :labels
+                              {:one 0}})]
+         (fact actions => expected-actions)
+         (fact mutations => expected-mutations)
+         (fact jumps => expected-jumps)))
 
-    1 [(begin :my-gesture-name {:type :ssg :spec {:freq 200}})
-       (begin :other-gesture-name {:type :ssg :spec {:freq 400}})]
-
-    ;; specify envelope nodes
-    3 [(! {:name :my-gesture-name :spec {:freq [220 :exp] :amp [0.1 :exp]}})]
-
-    1 [(begin {:type :ossg :spec {:freq 300 :dur 1}})]
-    2 [(begin {:type :ossg :spec {:freq 400 :dur 1}})]
-    3 [(begin {:type :ossg :spec {:freq 500 :dur 1}})]
-    4 [(begin {:type :ossg :spec {:freq 600 :dur 1}})]
-
-    set-beats-per-minute 150
-
-    silent ;; one measure of silence
-    silent-4 ;; four measures of silence
-
-    1 [(finish :my-gesture-name :other-gesture-name)
-       (begin :third-gesture-name {:type ssg :spec {:freq 500}})]
-
-    1 [(begin {:type :ossg :spec {:freq 600 :dur 1}})]
-    2 [(begin {:type :ossg :spec {:freq 500 :dur 1}})]
-    3 [(begin {:type :ossg :spec {:freq 400 :dur 1}})]
-    4 [(begin {:type :ossg :spec {:freq 300 :dur 1}})]
-
-    1 [(jump-to :beginning (fn [jump-count] (< 1 jump-count)))
-       (finish :third-gesture-name)]
-    or
-    1 [(jump-to :beginning #(continue-flag))
-       (finish :third-gesture-name)]))
+(facts "about `true-for-n`"
+       (let [instance (true-for-n 2)]
+         (fact "returns true for the number of times passed, then false"
+               (do (instance) => true
+                   (instance) => true
+                   (instance) => false))))
