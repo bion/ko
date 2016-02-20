@@ -264,9 +264,11 @@
         g-instance (ssg-gest spec position mutations)]
     #(do
        (println (str "playing " g-name))
-       (let [g-nodes (g-instance)]
-         (swap! living-gestures*
-                (fn [lgm] (assoc lgm g-name g-nodes)))))))
+       (if (g-name @living-gestures*)
+         (println "didn't begin" g-name ", key already found in living-gestures")
+         (let [g-nodes (g-instance)]
+           (swap! living-gestures*
+                  (fn [lgm] (assoc lgm g-name g-nodes))))))))
 
 (defn adjust
   "Send control messages to a running gesture.
