@@ -2,13 +2,9 @@
   (:use ko.scheduling)
   (:gen-class))
 
-(defonce beats-per-bar* (atom nil))
-(defonce beats-per-minute* (atom nil))
-(defonce jump-data* (atom nil))
-(defn reset-jump-data*! []
-  (reset! jump-data* {:labels {} :jumps {}}))
-
-(reset-jump-data*!)
+(def ^:dynamic *beats-per-bar* nil)
+(def ^:dynamic *beats-per-minute* nil)
+(def ^:dynamic *jump-data* nil)
 
 (defn gesture-record
   "begin event must specify inital state for all mutations
@@ -90,16 +86,16 @@
                       (str "Unrecognized event " form)))))
 
 (defn- beat-dur []
-  (/ 60 @beats-per-minute*))
+  (/ 60 @*beats-per-minute*))
 
 (defn- quant->duration [quant]
   (* (beat-dur) (- quant 1)))
 
 (defn- inc-measure-timestamp [timestamp]
-  (+ timestamp (* (beat-dur) @beats-per-bar*)))
+  (+ timestamp (* (beat-dur) @*beats-per-bar*)))
 
 (defn- add-measure-to-score [score measure]
-  (let [metadata {:beat-dur (beat-dur) :beats-per-bar @beats-per-bar*}]
+  (let [metadata {:beat-dur (beat-dur) :beats-per-bar @*beats-per-bar*}]
     (conj score (with-meta measure metadata))))
 
 (defn extract-measure [score measure-num mutations measure-timestamp]
@@ -141,7 +137,7 @@
   (fn [remaining-score expanded-score mutations measure-num measure-timestamp]
     (let [new-val (second remaining-score)
           next-remaining-score (-> remaining-score rest rest)]
-      (reset! global new-val)
+      (reset! (var-get global) new-val)
       [next-remaining-score expanded-score mutations measure-num measure-timestamp])))
 
 (defn extract-normal-measure
@@ -181,7 +177,7 @@
   [remaining-score expanded-score mutations measure-num timestamp]
   (let [label (second remaining-score)
         next-remaining-score (-> remaining-score rest rest)]
-    (swap! jump-data*
+    (swap! *jump-data*
            (fn [md] (update-in md [:labels]
                                ;; dec measure-num to get index
                                #(assoc % label (dec measure-num)))))
@@ -194,7 +190,7 @@
         jump {:label label
               :should-jump? should-jump?}]
 
-    (swap! jump-data*
+    (swap! *jump-data*
            (fn [md] (update-in md [:jumps]
                                ;; dec measure-num to get index
                                #(assoc % (dec measure-num) jump))))
@@ -216,8 +212,8 @@
    #(= 'label %) set-label
    #(= 'jump-to %) (partial jump-to-label (true-for-n 1))
    #(= 'silent %) extract-silent-measure ;; insert one measure of silence
-   #(= 'beats-per-bar %) (set-global beats-per-bar*)
-   #(= 'beats-per-minute %) (set-global beats-per-minute*)})
+   #(= 'beats-per-bar %) (set-global #'*beats-per-bar*)
+   #(= 'beats-per-minute %) (set-global #'*beats-per-minute*)})
 
 (defn resolve-handler [score measure-num]
   (let [next-token (first score)
@@ -249,8 +245,7 @@
                                     timestamp)]
 
       (if (empty? next-remaining-score)
-        (let [jump-data @jump-data*]
-          (reset-jump-data*!)
+        (let [jump-data @*jump-data*]
           [next-expanded-score next-mutations jump-data])
         (recur next-expanded-score
                next-mutations
@@ -340,8 +335,11 @@
   [score-name & input-score]
   (if (empty? input-score)
     []
-    (let [[score mutations jump-data] (parse-score input-score)
-          score (zip-mutations score (filter-mutations mutations))
-          score (with-meta score jump-data)]
-      (reset! jump-data* {:labels {} :jumps {}})
-      `(def ~score-name ~score))))
+    (binding [*beats-per-minute* (atom 60)
+              *beats-per-bar* (atom 4)
+              *jump-data* (atom {:labels {} :jumps {}})]
+
+      (let [[score mutations jump-data] (parse-score input-score)
+            score (zip-mutations score (filter-mutations mutations))
+            score (with-meta score jump-data)]
+        `(def ~score-name ~score)))))
