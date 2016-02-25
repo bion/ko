@@ -1,6 +1,5 @@
 (ns ko.score
-  (:use ko.scheduling)
-  (:gen-class))
+  (:use ko.scheduling))
 
 (def ^:dynamic *beats-per-bar* nil)
 (def ^:dynamic *beats-per-minute* nil)

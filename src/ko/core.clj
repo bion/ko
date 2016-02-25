@@ -2,5 +2,4 @@
   [:use
    [ko.scheduling]
    [ko.synth_defs.single_signal]
-   [ko.gestures.single_signal]]
-  (:gen-class))
+   [ko.gestures.single_signal]])

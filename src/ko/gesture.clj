@@ -1,6 +1,5 @@
 (ns ko.gesture
   [:require [overtone.core :as ot]]
-  (:gen-class))
 
 (defonce living-gestures* (atom {}))
 (defonce groups* (atom {}))

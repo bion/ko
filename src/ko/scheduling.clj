@@ -1,6 +1,5 @@
 (ns ko.scheduling
-  [:require [overtone.core :as ot]]
-  (:gen-class))
+  [:require [overtone.core :as ot]])
 
 (defn calc-beat-dur-ms [beat-dur]
   (* beat-dur 1000))
