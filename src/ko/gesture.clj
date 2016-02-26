@@ -2,6 +2,10 @@
   [:require [overtone.core :as ot]]
   [:use [ko.mutations]])
 
+(defrecord Action [type g-type func args]
+  clojure.lang.IFn
+  (invoke [this] (func args)))
+
 (defonce synth-templates* (atom {}))
 (defonce living-gestures* (atom {}))
 (defonce groups* (atom {}))
@@ -111,25 +115,9 @@
       (if (nil? existing-group)
         (throw (Exception. (str "no group found with name "
                                 group-name))))
-      [add-action existing-group])))
+      [add-action existing-group])
 
-;; returns a function that when called begins playing the gesture
-;; and returns a representation of the playing gesture
-(defn ssg-gest
-  [spec position mutations]
-  (let [instr (:instr spec)]
-    (if-not instr
-      (throw (Exception. (str "no instr specified in `ssg` gesture"
-                              " with `spec`: " spec))))
-
-    (let [instr-name (keyword (:name instr))
-          synth-args (flatten (into [] (dissoc spec :instr)))
-          synth-args (resolve-synth-args synth-args)
-          synth-args (conj synth-args position)
-          synth-fn (if (empty? mutations)
-                     instr
-                     (with-mutations instr-name mutations synth-templates*))]
-      #(apply synth-fn synth-args))))
+    (default-group)))
 
 ;; clear previous definition of multimethod
 (def begin nil)
@@ -175,15 +163,34 @@
           (= 1 arg-count)
           [(first args) nil])))
 
+(defn ssg-gest
+  [spec position mutations]
+  (let [instr (:instr spec)]
+    (if-not instr
+      (throw (Exception. (str "no instr specified in `ssg` gesture"
+                              " with `spec`: " spec))))
+
+    (let [instr-name (keyword (:name instr))
+          synth-args (flatten (into [] (dissoc spec :instr)))
+          synth-args (resolve-synth-args synth-args)
+          synth-args (conj synth-args position)
+          synth-fn (if (empty? mutations)
+                     instr
+
+                     (with-mutations instr-name mutations synth-templates*))]
+      [synth-fn synth-args])))
+
 (defmethod begin :ssg
   [g-type g-name spec & remaining]
   (let [[mutations position] (resolve-optional-ssg-begin-args remaining)
         position (resolve-position position)
-        g-instance (ssg-gest spec position mutations)]
-    #(do
-       (println (str "playing " g-name))
-       (if (g-name @living-gestures*)
-         (println "didn't begin" g-name ", key already found in living-gestures")
-         (let [g-nodes (g-instance)]
-           (swap! living-gestures*
-                  (fn [lgm] (assoc lgm g-name g-nodes))))))))
+        [synth-func synth-args] (ssg-gest spec position mutations)
+        action-func (fn [action-args]
+                      (println (str "playing " g-name))
+                      (if (g-name @living-gestures*)
+                        (println "didn't begin" g-name
+                                 ", key already found in living-gestures")
+                        (let [g-nodes (apply synth-func action-args)]
+                          (swap! living-gestures*
+                                 (fn [lgm] (assoc lgm g-name g-nodes))))))]
+    (->Action :begin :ssg action-func synth-args)))

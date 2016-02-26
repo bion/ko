@@ -92,7 +92,6 @@
         new-template (conj () new-ugen-forms param-list)]
     new-template))
 
-
 (defn with-mutations
   "Returns a function that plays the given synth with mutations applied"
   [instr-name mutations templates*]
