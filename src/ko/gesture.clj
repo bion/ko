@@ -68,7 +68,7 @@
       (let [target-group (@groups* target)]
         (if-not (group? target-group)
           (throw (Exception. (str "unrecognized group target: " target))))
-        (if-not (ot/node-live? target-group)
+        (if-not (or (ot/node-live? target-group) (ot/node-loading? target-group))
           (throw (Exception. (str "group target not alive: " target))))
 
         target-group)))
@@ -107,7 +107,6 @@
 
 (defn resolve-position [position]
   (if position
-    (default-group)
     (let [[add-action group-name] (if (vector? position)
                                     position
                                     [:head position])
