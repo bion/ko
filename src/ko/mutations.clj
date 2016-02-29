@@ -1,6 +1,6 @@
 (ns ko.mutations
-  [:require [overtone.core :as ot]]
-  [:use [ko.gesture]])
+  [:use [ko.synth-args]]
+  [:require [overtone.core :as ot]])
 
 (def keyword->symbol #(symbol (str (name %))))
 
@@ -90,8 +90,8 @@
         param-list (remove-param (first s-template) (map :param-name envelopes))
         new-ugen-forms (conj () (last s-template) (vec envelope-bindings) 'let)
         new-template (conj () new-ugen-forms param-list)]
+    (println new-template)
     new-template))
-
 
 (defn with-mutations
   "Returns a function that plays the given synth with mutations applied"

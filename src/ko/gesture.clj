@@ -1,41 +1,30 @@
 (ns ko.gesture
   [:require [overtone.core :as ot]]
-  [:use [ko.mutations]])
+  [:use [ko.mutations]
+   [ko.synth-args]])
+
+(defrecord Action [name action-type gesture-type func args mutator]
+  clojure.lang.IFn
+  (invoke [this] (func args)))
+
+(defn add-mutations [action mutations]
+  ((:mutator action) action mutations))
+
+(defmethod print-method Action [action writer]
+  (.write writer (format "#<Action[%s]: %s %s %s>"
+                         (name (:action-type action))
+                         (name (:name action))
+                         (name (:gesture-type action))
+                         (str (:args action)))))
 
 (defonce synth-templates* (atom {}))
 (defonce living-gestures* (atom {}))
 (defonce groups* (atom {}))
-(defonce busses* (atom {}))
 
 (defn remove-from-atom-map [atom-map k]
   (swap! atom-map
          (fn [atom-map-val]
            (apply dissoc (into [atom-map-val] k)))))
-
-(defn add-bus [bus-name]
-  (let [new-bus (ot/audio-bus)]
-    (swap! busses*
-           #(assoc % bus-name new-bus))
-    new-bus))
-
-(defn resolve-synth-arg [arg]
-  (cond (= clojure.lang.Keyword (type arg))
-        (ot/midi->hz (ot/note arg))
-
-        (and (= java.lang.String (type arg))
-             (re-matches #".*-bus$" arg))
-        (or (@busses* arg) (add-bus arg))
-
-        (>= 0 arg)
-        (ot/db->amp arg)
-
-        :default
-        arg))
-
-(defn resolve-synth-args [args]
-  (flatten (map (fn [[param-name param-val]]
-                  [param-name (resolve-synth-arg param-val)])
-                (partition 2 args))))
 
 (defmacro ko-defsynth
   "Define an overtone synth as per usual, but also store the
@@ -64,7 +53,7 @@
       (let [target-group (@groups* target)]
         (if-not (group? target-group)
           (throw (Exception. (str "unrecognized group target: " target))))
-        (if-not (ot/node-live? target-group)
+        (if-not (or (ot/node-live? target-group) (ot/node-loading? target-group))
           (throw (Exception. (str "group target not alive: " target))))
 
         target-group)))
@@ -103,7 +92,6 @@
 
 (defn resolve-position [position]
   (if position
-    (default-group)
     (let [[add-action group-name] (if (vector? position)
                                     position
                                     [:head position])
@@ -111,28 +99,11 @@
       (if (nil? existing-group)
         (throw (Exception. (str "no group found with name "
                                 group-name))))
-      [add-action existing-group])))
+      [add-action existing-group])
 
-;; returns a function that when called begins playing the gesture
-;; and returns a representation of the playing gesture
-(defn ssg-gest
-  [spec position mutations]
-  (let [instr (:instr spec)]
-    (if-not instr
-      (throw (Exception. (str "no instr specified in `ssg` gesture"
-                              " with `spec`: " spec))))
+    (default-group)))
 
-    (let [instr-name (keyword (:name instr))
-          synth-args (flatten (into [] (dissoc spec :instr)))
-          synth-args (resolve-synth-args synth-args)
-          synth-args (conj synth-args position)
-          synth-fn (if (empty? mutations)
-                     instr
-                     (with-mutations instr-name mutations synth-templates*))]
-      #(apply synth-fn synth-args))))
-
-;; clear previous definition of multimethod
-(def begin nil)
+(def begin nil) ;; clear previous definition of begin multimethod
 (defmulti begin
   "Begin playing a gesture. `begin` events can take one
   of several types.
@@ -151,39 +122,94 @@
 (defn adjust
   "Send control messages to a running gesture.
   Messages are specified as alternating argument key value pairs"
-  [g-name & rest]
-  #(do
-     (println (str "adjust " g-name))
-     ;; assumes nodes are stored here
-     (let [g-nodes (@living-gestures* g-name)]
-       (apply ot/ctl (apply conj g-nodes rest)))))
+  [g-name & g-params]
+  (let [action-func (fn [[action-g-name action-g-params]]
+                      (println (str "adjust " g-name))
+                      ;; assumes nodes are stored here
+                      (let [g-nodes (@living-gestures* action-g-name)]
+                        (apply ot/ctl (apply conj g-nodes action-g-params))))]
+    (map->Action
+     {:name g-name
+      :action-type :adjust
+      :gesture-type :ssg
+      :func action-func
+      :args [g-name g-params]})))
+
+(defn curve
+  "Specify a breakpoint along a control curve.
+  Curve actions are not real actions, but are used by ko to specify
+  control envelopes for gestures. ko.score removes curve actions from
+  the score and applies them to their begin actions."
+  [g-name g-spec]
+  (map->Action
+   {:name g-name
+    :action-type :mutate
+    :gesture-type :ssg
+    :func #(throw (Exception. "Mutate actions cannot be invoked"))
+    :args g-spec}))
 
 (defn finish
   "Send end message to gestures and remove from `living-gestures*`"
   [& g-names]
-  #(do
-     (println "finish " g-names)
-     (doseq [node (map @living-gestures* g-names)]
-       (ot/kill node))
-     (remove-from-atom-map living-gestures* g-names)))
+  (let [action-func (fn [action-g-names]
+                      (println "finish " g-names)
+                      (doseq [node (map @living-gestures* action-g-names)]
+                        (ot/kill node))
+                      (remove-from-atom-map living-gestures* action-g-names))]
+    (map->Action
+     {:name (apply str g-names)
+      :action-type :finish
+      :gesture-type :ssg
+      :func action-func
+      :args g-names})))
 
-(defn- resolve-optional-ssg-begin-args [args]
-  (let [arg-count (count args)]
-    (cond (= 2 arg-count)
-          [(second args) (first args)]
+;; ________________________________________________________________
+;; :ssg gesture type
+;; ________________________________________________________________
 
-          (= 1 arg-count)
-          [(first args) nil])))
+(defn ssg-gest
+  ([spec position] (ssg-gest spec position []))
+  ([spec position mutations]
+   (let [instr (:instr spec)]
+     (if-not instr
+       (throw (Exception. (str "no instr specified in `ssg` gesture"
+                               " with `spec`: " spec))))
+     (let [instr-name (keyword (:name instr))
+           synth-args (flatten (into [] (dissoc spec :instr)))
+           synth-args (resolve-synth-args synth-args)
+           synth-args (conj synth-args position)
+           synth-fn (if (empty? mutations)
+                      instr
+                      (with-mutations instr-name mutations synth-templates*))]
+
+       [synth-fn synth-args]))))
+
+(defn ssg-player [g-name synth-func]
+  (fn [action-args]
+    (if (g-name @living-gestures*)
+      (println "didn't begin" g-name
+               ", key already found in living-gestures")
+      (let [g-nodes (apply synth-func action-args)]
+        (println (str "playing " g-name))
+        (swap! living-gestures*
+               (fn [lgm] (assoc lgm g-name g-nodes)))))))
+
+(defn ssg-apply-mutations [spec position]
+  (fn [action mutations]
+    (let [[synth-func synth-args] (ssg-gest spec position mutations)
+          g-name (:name action)
+          func (ssg-player g-name synth-func)]
+      (assoc action :func func :args synth-args))))
 
 (defmethod begin :ssg
   [g-type g-name spec & remaining]
-  (let [[mutations position] (resolve-optional-ssg-begin-args remaining)
-        position (resolve-position position)
-        g-instance (ssg-gest spec position mutations)]
-    #(do
-       (println (str "playing " g-name))
-       (if (g-name @living-gestures*)
-         (println "didn't begin" g-name ", key already found in living-gestures")
-         (let [g-nodes (g-instance)]
-           (swap! living-gestures*
-                  (fn [lgm] (assoc lgm g-name g-nodes))))))))
+  (let [position (resolve-position (first remaining))
+        [synth-func synth-args] (ssg-gest spec position)
+        action-func (ssg-player g-name synth-func)]
+    (map->Action
+     {:name g-name
+      :action-type :begin
+      :gesture-type :ssg
+      :func action-func
+      :args synth-args
+      :mutator (ssg-apply-mutations spec position)})))

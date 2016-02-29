@@ -1,8 +1,6 @@
-try using dynamic vars in score.clj to avoid state issues between
-calls to `parse-score`
-
-warning when mutations pass over jumps
-
-jumps with in-score should-jump? arg
-
-update README for jumps
+* jumps
+  how to prevent duplicate gestures after jumping
+  jumps with in-score should-jump? arg
+  update README for jumps
+  calls to `parse-score`
+  warning when mutations pass over jumps
