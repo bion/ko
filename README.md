@@ -23,14 +23,14 @@ Declarative scores for [Overtone](http://overtone.github.io/).
 
   1 [(begin :ssg :my-gesture {:instr test-synth
                               :freq :C4
-                              :amp 12})]
+                              :amp -16})]
   2 [(begin :ssg :other-gesture {:instr test-synth
                                  :freq :Bf3
                                  :amp -12})]
 
   silent
 
-  1 [(! :my-gesture {:freq [:G4 :exp]
+  1 [(curve :my-gesture {:freq [:G4 :exp]
                      :amp [-6 :exp]})
      (alter :other-gesture {:freq :C5})]
   2 [(finish :my-gesture :other-gesture)])
@@ -47,7 +47,7 @@ the same ns). Then use `defscore` to define a score. A basic score
 consists of pairs of numbers and vectors. Numbers indicate beats in a
 measure e.g. 1.5 is the first offbeat of the measure. Measures are
 inferred by numbers lower than their predecessors. Vectors contain
-`begin`, `adjust`, `finish` and `!` actions to be executed at the time
+`begin`, `adjust`, `finish` and `curve` actions to be executed at the time
 that corresponds with their corresponding number.
 
 The following plays two gestures, one starting on beat one and the
@@ -78,9 +78,9 @@ a `ko-synthdef` along with all other params to the synth. Spec
 can itself be a map, a var referring to a map, or form that when
 evaluated returns a map.
 
-### `adjust` and `!`
+### `adjust` and `curve`
 
-`adjust` and `!` actions control gestures as they are playing, but do so
+`adjust` and `curve` actions control gestures as they are playing, but do so
 differently.
 
 `adjust` is used to alter parameters of a running synth at
@@ -92,10 +92,10 @@ corresponding measure:
 3 (adjust :my-gesture {:amp -12})
 ```
 
-`!` is used to specify control envelope breakpoints for smooth
+`curve` is used to specify control envelope breakpoints for smooth
 changes over the course of a gesture by calculating the time
-difference between a gesture's `begin` and successive `!` actions.
-Unlike `alter`, `!` generates a new synthdef under the hood and does
+difference between a gesture's `begin` and successive `curve` actions.
+Unlike `alter`, `curve` generates a new synthdef under the hood and does
 not send additional OSC messages to scsynth while the score is playing.
 
 The following begins a gesture on beat two that crescendos along an
@@ -107,8 +107,8 @@ for more info on envelope curvature) and ending on beat three:
 ```clojure
 2 [(begin :ssg :my-gesture {:instr test-synth :amp -24 :freq :c4})]
 
-1 [(! :my-gesture {:amp [-6 :exp]})]
-3 [(! :my-gesture {:amp [-32 4]})
+1 [(curve :my-gesture {:amp [-6 :exp]})]
+3 [(curve :my-gesture {:amp [-32 4]})
    (finish :my-gesture)]
 ```
 

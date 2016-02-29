@@ -1,88 +1,69 @@
 (ns ko.score
-  (:use ko.scheduling))
+  (:use ko.gesture))
 
 (def ^:dynamic *beats-per-bar* nil)
 (def ^:dynamic *beats-per-minute* nil)
 (def ^:dynamic *jump-data* nil)
 
 (defn gesture-record
-  "begin event must specify inital state for all mutations
+  "begin action must specify inital state for all mutations
   {:gesture-name
      ;; first one is beginning of gesture
      [{:measure 1 :quant 1 :timestamp 1.12 :spec {:instr foo :freq 200 :amp 1}}
       {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [300 :exp]}}
       {:measure 3 :quant 1 :timestamp 43.12 :spec {:freq [200 :exp]}}]}"
   [g-spec measure-num quant timestamp]
-  (let [begin-event {:measure measure-num
-                     :quant quant
-                     :timestamp timestamp
-                     :spec g-spec}]
-    (with-meta [begin-event] {:arg-type :mutations})))
+  (let [begin-action {:measure measure-num
+                      :quant quant
+                      :timestamp timestamp
+                      :spec g-spec}]
+    (with-meta [begin-action] {:arg-type :mutations})))
 
-(defn resolve-spec
-  "Resolves symbols and evaluates lists until a map is produced or throws"
-  ([g-spec]
-   (resolve-spec g-spec 0))
-  ([g-spec depth]
-   (if (>= depth 10)
-     (throw (Exception.
-             (str "Recursed too many times in `resolve-spec` with spec:"
-                  g-spec)))
-     (cond
-       (map? g-spec) g-spec
-       (var? g-spec) (resolve-spec (var-get g-spec) (inc depth))
-       (list? g-spec) (resolve-spec (eval g-spec) (inc depth))
-       (symbol? g-spec) (resolve-spec (resolve g-spec) (inc depth))
-
-       :else
-       (throw (Exception. (str "Unrecognized spec in `resolve-spec` "
-                               g-spec)))))))
-
-(defn record-begin-events
-  [measure-num quant begin-events mutations timestamp]
-  (if (empty? begin-events)
+(defn record-begin-actions
+  [measure-num quant begin-actions mutations timestamp]
+  (if (empty? begin-actions)
     mutations
-    (reduce (fn [memo event]
-              (let [g-name (nth event 2)
-                    ;; this doesn't make sense when the gesture has no name
-                    g-spec (resolve-spec (nth event 3))]
+    (reduce (fn [memo action]
+              (println (:args action))
+              (let [g-name (:name action)
+                    g-spec (apply hash-map (rest (:args action)))]
                 (merge memo {g-name
                              (gesture-record g-spec
                                              measure-num
                                              quant
                                              timestamp)})))
             mutations
-            begin-events)))
+            begin-actions)))
 
-(defn record-mutations [measure-num quant mutations-events mutations timestamp]
-  (if (empty? mutations-events)
+(defn record-mutations [measure-num quant mutations-actions mutations timestamp]
+  (if (empty? mutations-actions)
     mutations
-    (reduce (fn [memo event]
-              (let [g-name (second event)
-                    g-spec (resolve-spec (nth event 2))
-                    event-record {:timestamp timestamp
-                                  :measure measure-num
-                                  :quant quant
-                                  :spec g-spec}
+    (reduce (fn [memo action]
+              (let [g-name (:name action)
+                    g-spec (:args action)
+                    action-record {:timestamp timestamp
+                                   :measure measure-num
+                                   :quant quant
+                                   :spec g-spec}
                     gesture (mutations g-name)]
                 (if-not gesture
                   (throw (Exception.
-                          (str "No gesture found for `!` (mutation): "
+                          (str "No gesture found for mutation: "
                                g-name))))
-                (update-in mutations [g-name] conj event-record)))
+                (update-in mutations [g-name] conj action-record)))
             mutations
-            mutations-events)))
+            mutations-actions)))
 
-(defn event-type [form]
-  (cond (seq? form)
-        (let [first-element (first form)]
-          (cond (= '! first-element) :mutation-events
-                (= 'begin first-element) :begin-events
-                :else :basic-scheduled-events))
-
-        (fn? form) :basic-scheduled-events
-        :else (throw (Exception.
-                      (str "Unrecognized event " form)))))
+(defn group-actions-by-type [actions]
+  (group-by (fn [action]
+              (let [action-type (:action-type action)]
+                (if-not (.contains [:begin :curve :alter :finish] action-type)
+                  (throw (Exception.
+                          (str "Unrecognized action " (with-out-str (prn action))))))
+                (cond (= :begin action-type) :begin-actions
+                      (= :curve action-type) :mutation-actions
+                      :else :basic-scheduled-actions)))
+            actions))
 
 (defn- beat-dur []
   (/ 60 @*beats-per-minute*))
@@ -102,24 +83,25 @@
          remaining-score score
          mutations-acc mutations]
     (let [quant (first remaining-score)
-          {:keys [basic-scheduled-events
-                  mutation-events
-                  begin-events]} (group-by event-type (second remaining-score))
-          scheduled-events (apply conj basic-scheduled-events begin-events)
+          actions (map eval (second remaining-score)) ;; eval the actions
+          {:keys [basic-scheduled-actions
+                  mutation-actions
+                  begin-actions]} (group-actions-by-type actions)
+          scheduled-actions (apply conj basic-scheduled-actions begin-actions)
           next-remaining-score (-> remaining-score rest rest)
           next-item-in-score (first next-remaining-score)
-          next-measure (if (empty? scheduled-events)
-                         measure (assoc measure quant (into [] scheduled-events)))
+          next-measure (if (empty? scheduled-actions)
+                         measure (assoc measure quant (into [] scheduled-actions)))
 
           quant-timestamp (+ measure-timestamp (quant->duration quant))
-          next-mutations (record-begin-events measure-num
-                                              quant
-                                              begin-events
-                                              mutations-acc
-                                              quant-timestamp)
+          next-mutations (record-begin-actions measure-num
+                                               quant
+                                               begin-actions
+                                               mutations-acc
+                                               quant-timestamp)
           next-mutations (record-mutations measure-num
                                            quant
-                                           mutation-events
+                                           mutation-actions
                                            next-mutations
                                            quant-timestamp)]
 
@@ -253,27 +235,30 @@
                next-timestamp)))))
 
 (defn zip-mutations
-  "Appends matching mutations to begin events in `score`
-  all events will end with either a list of mutations or
+  "Appends matching mutations to begin actions in `score`
+  all actions will end with either a list of mutations or
   an empty vector."
   [score mutations]
-  (reduce (fn [updated-score [g-name g-mutation-list]]
-            (let [{:keys [measure quant]} (first g-mutation-list)]
-              (update-in score
-                         [(dec measure) quant]
-                         (fn [events]
-                           (vec
-                            (map (fn [event]
-                                   (if (and (= 'begin (first event))
-                                            (= g-name (nth event 2)))
-                                     (concat event `(~g-mutation-list))
-                                     (concat event '([]))))
-                                 events))))))
-          score
-          mutations))
+  (let [score-with-mutations
+        (reduce (fn [updated-score [g-name g-mutation-list]]
+                  (let [{:keys [measure quant]} (first g-mutation-list)]
+                    (update-in
+                     score
+                     [(dec measure) quant]
+                     (fn [actions]
+                       (vec
+                        (map (fn [action]
+                               (if (and (= :begin (:action-type action))
+                                        (= g-name (:name action)))
+                                 (add-mutations action g-mutation-list)
+                                 action))
+                             actions))))))
+                score
+                mutations)]
+    score-with-mutations))
 
-(defn filter-mutations
-  "returns mutations that have more than just a beginning event"
+(defn filter-empty-mutations
+  "returns mutations that have more than just a beginning action"
   [mutations]
   (into {}
         (remove (fn [[g-name mutation-list]]
@@ -284,7 +269,7 @@
   "Define a ko score and prepare it for playing. A basic score consists
   of number vector pairs. Numbers indicate beats in a measure e.g. 1.5
   is the first offbeat of the measure. The vector contains `begin`, `adjust`,
-  `finish` and `!` events to be executed at the time that corresponds with the
+  `finish` and `curve` actions to be executed at the time that corresponds with the
   adjacent number.
 
   E.g. The following plays two gestures, one starting on beat
@@ -297,7 +282,7 @@
 
     1 [(finish :my-gesture :next-gesture)]
 
-  `adjust` and `!` events control gestures as they are playing, but do so
+  `adjust` and `curve` actions control gestures as they are playing, but do so
   differently.
 
   `adjust` is used to alter parameters of a running synth at
@@ -307,10 +292,10 @@
 
   3 (adjust :my-gesture {:amp -12})
 
-  `!` is used to specify control envelope breakpoints for smooth
+  `curve` is used to specify control envelope breakpoints for smooth
   changes over the course of a gesture by calculating the time
-  difference between a gesture's `begin` and successive `!` events.
-  Unlike `alter`, `!` generates a new synthdef under the hood and does
+  difference between a gesture's `begin` and successive `curve` actions.
+  Unlike `alter`, `curve` generates a new synthdef under the hood and does
   not send additional OSC messages to scsynth while the score is playing.
 
   The following begins a gesture on beat two that crescendos along an
@@ -319,7 +304,7 @@
 
   2 (begin :ssg :my-gesture {:instr test-synth :amp -24 :freq :c4})
 
-  1 (! :my-gesture {:amp [-6 :exp]})
+  1 (curve :my-gesture {:amp [-6 :exp]})
   3 (finish :my-gesture)
 
   Aside from specifying gestures, the defscore macro provides for setting
@@ -328,7 +313,7 @@
   beats-per-bar 4
   beats-per-minute 80
 
-  and specifying a no events take place in a measure:
+  and specifying a no actions take place in a measure:
 
   silent"
   [score-name & input-score]
@@ -339,6 +324,7 @@
               *jump-data* (atom {:labels {} :jumps {}})]
 
       (let [[score mutations jump-data] (parse-score input-score)
-            score (zip-mutations score (filter-mutations mutations))
+            score (zip-mutations score (filter-empty-mutations mutations))
             score (with-meta score jump-data)]
+
         `(def ~score-name ~score)))))

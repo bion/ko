@@ -17,21 +17,15 @@
              [in-bus 8 out-bus 0 cutoff 440]
              (ot/out out-bus (ot/lpf (ot/in in-bus) cutoff)))
 
-(ko-defsynth bark-delay-test
-             [bus 0 freq 220 amp 0.5 delay-scale 1.0 delay-width 1.0]
-             (let [src (* (ot/sin-osc freq) amp)
-                   src (bark-delay src 1.0 1.0 delay-width delay-scale)]
-               (ot/out bus src)))
-
 (def source-spec {:instr test-synth
                   :freq 220
-                  :amp -6
+                  :amp 0
                   :bus "test-bus"})
 
 (def filt-spec {:instr test-filter
                 :in-bus "test-bus"
                 :out-bus 0
-                :cutoff 100})
+                :cutoff 400})
 
 (register-group "source")
 (register-group "filter" "source" :after)
@@ -40,12 +34,14 @@
   beats-per-bar 4
   beats-per-minute 108
 
-  1 [(begin :ssg :g-one (merge source-spec {:freq 440}) "source")
+  ;; label :one
+  1 [(begin :ssg :g-one (assoc source-spec :freq 440) "source")
      (begin :ssg :filt filt-spec "filter")]
 
   silent
 
-  1 [(! :filt {:cutoff [10000 :exp]})]
+  ;; jump-to :one
+  1 [(curve :filt {:cutoff [10000 :exp]})]
   3 [(finish :g-one :filt)])
 
 (clojure.pprint/pprint test-score)
