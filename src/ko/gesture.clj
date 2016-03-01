@@ -143,7 +143,7 @@
   [g-name g-spec]
   (map->Action
    {:name g-name
-    :action-type :mutate
+    :action-type :curve
     :gesture-type :ssg
     :func #(throw (Exception. "Mutate actions cannot be invoked"))
     :args g-spec}))
