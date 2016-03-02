@@ -95,15 +95,15 @@
 
           quant-timestamp (+ measure-timestamp (quant->duration quant))
           next-curves (record-begin-actions measure-num
-                                               quant
-                                               begin-actions
-                                               curves-acc
-                                               quant-timestamp)
+                                            quant
+                                            begin-actions
+                                            curves-acc
+                                            quant-timestamp)
           next-curves (record-curves measure-num
-                                           quant
-                                           curve-actions
-                                           next-curves
-                                           quant-timestamp)]
+                                     quant
+                                     curve-actions
+                                     next-curves
+                                     quant-timestamp)]
 
       (cond
         (and (number? next-item-in-score) (< quant next-item-in-score))
@@ -115,18 +115,20 @@
                (inc-measure-timestamp measure-timestamp)]))))
 
 (defn- set-global [global]
-  (fn [remaining-score expanded-score curves measure-num measure-timestamp]
-    (let [new-val (second remaining-score)
-          next-remaining-score (-> remaining-score rest rest)]
+  (fn [parse-state]
+    (let [score (:score parse-state)
+          new-val (second score)
+          next-score (-> score rest rest)]
       (reset! (var-get global) new-val)
-      [next-remaining-score expanded-score curves measure-num measure-timestamp])))
+      (assoc parse-state :score next-score))))
 
 (defn extract-normal-measure
-  [remaining-score expanded-score curves measure-num timestamp]
-  (let [[next-measure
-         next-remaining-score
+  [parse-state]
+  (let [{:keys [expanded-score score measure-num curves timestamp]} parse-state
+        [next-measure
+         next-score
          next-curves
-         next-timestamp] (extract-measure remaining-score
+         next-timestamp] (extract-measure score
                                           measure-num
                                           curves
                                           timestamp)
@@ -135,39 +137,42 @@
                               expanded-score
                               (add-measure-to-score expanded-score next-measure))]
 
-    [next-remaining-score
-     next-expanded-score
-     next-curves
-     (inc measure-num)
-     next-timestamp]))
+    {:expanded-score next-expanded-score
+     :score next-score
+     :measure-num (inc measure-num)
+     :curves next-curves
+     :timestamp next-timestamp}))
 
 (defn extract-silent-measure
-  [remaining-score expanded-score curves measure-num timestamp]
+  [parse-state]
   (let [next-measure {0 []}
-        next-remaining-score (rest remaining-score)
+        {:keys [score expanded-score measure-num timestamp]} parse-state
+        next-score (rest score)
         next-expanded-score (add-measure-to-score expanded-score
                                                   next-measure)
         next-timestamp (inc-measure-timestamp timestamp)]
-    [next-remaining-score
-     next-expanded-score
-     curves
-     (inc measure-num)
-     next-timestamp]))
+    (assoc parse-state
+           :score next-score
+           :measure-num (inc measure-num)
+           :expanded-score next-expanded-score
+           :timestamp next-timestamp)))
 
 (defn set-label
-  [remaining-score expanded-score curves measure-num timestamp]
-  (let [label (second remaining-score)
-        next-remaining-score (-> remaining-score rest rest)]
+  [parse-state]
+  (let [{:keys [score measure-num]} parse-state
+        label (second score)
+        next-score (-> score rest rest)]
     (swap! *jump-data*
            (fn [md] (update-in md [:labels]
                                ;; dec measure-num to get index
                                #(assoc % label (dec measure-num)))))
-    [next-remaining-score expanded-score curves measure-num timestamp]))
+    (assoc parse-state :score next-score)))
 
 (defn jump-to-label
-  [should-jump? remaining-score expanded-score curves measure-num timestamp]
-  (let [next-remaining-score (-> remaining-score rest rest)
-        label (second remaining-score)
+  [should-jump? parse-state]
+  (let [{:keys [score measure-num]} parse-state
+        next-score (-> score rest rest)
+        label (second score)
         jump {:label label
               :should-jump? should-jump?}]
 
@@ -176,7 +181,7 @@
                                ;; dec measure-num to get index
                                #(assoc % (dec measure-num) jump))))
 
-    [next-remaining-score expanded-score curves measure-num timestamp]))
+    (assoc parse-state :score next-score)))
 
 (defn true-for-n [times]
   (let [call-count* (atom 0)]
@@ -186,8 +191,6 @@
 
 (def token-handlers
   ;; can-handle? => handle pairs
-  ;; handler params [score expanded-score curves measure-num timestamp]
-  ;; returns [next-remaining-score next-expanded-score next-curves next-measure-num next-timestamp]
 
   {#(number? %) extract-normal-measure ;; normal measure handler
    #(= 'label %) set-label
@@ -209,30 +212,23 @@
         handler)))
 
 (defn parse-score [input-score]
-  (loop [expanded-score []
-         curves {}
-         score input-score
-         measure-num 1
-         timestamp 0]
-    (let [handler (resolve-handler score measure-num)
-          [next-remaining-score
-           next-expanded-score
-           next-curves
-           next-measure-num
-           next-timestamp] (handler score
-                                    expanded-score
-                                    curves
-                                    measure-num
-                                    timestamp)]
+  (let [initial {:expanded-score []
+                 :curves {}
+                 :score input-score
+                 :measure-num 1
+                 :timestamp 0}]
+    (loop [parse-state initial]
+      (let [{:keys [score measure-num]} parse-state
+            handler (resolve-handler score measure-num)
+            next-parse-state (handler parse-state)]
 
-      (if (empty? next-remaining-score)
-        (let [jump-data @*jump-data*]
-          [next-expanded-score next-curves jump-data])
-        (recur next-expanded-score
-               next-curves
-               next-remaining-score
-               next-measure-num
-               next-timestamp)))))
+        (if (empty? (:score next-parse-state))
+          (let [{:keys [expanded-score curves]} next-parse-state
+                jump-data @*jump-data*
+                return [expanded-score curves jump-data]]
+            return)
+
+          (recur next-parse-state))))))
 
 (defn zip-curves
   "Appends matching curves to begin actions in `score`
