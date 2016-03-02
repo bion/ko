@@ -116,17 +116,17 @@
 
 (defn- set-global [global]
   (fn [parse-state]
-    (let [remaining-score (:remaining-score parse-state)
-          new-val (second remaining-score)
-          next-remaining-score (-> remaining-score rest rest)]
+    (let [score (:score parse-state)
+          new-val (second score)
+          next-score (-> score rest rest)]
       (reset! (var-get global) new-val)
-      (assoc parse-state :remaining-score remaining-score))))
+      (assoc parse-state :score next-score))))
 
 (defn extract-normal-measure
   [parse-state]
   (let [{:keys [expanded-score score measure-num curves timestamp]} parse-state
         [next-measure
-         next-remaining-score
+         next-score
          next-curves
          next-timestamp] (extract-measure score
                                           measure-num
@@ -138,7 +138,7 @@
                               (add-measure-to-score expanded-score next-measure))]
 
     {:expanded-score next-expanded-score
-     :score next-remaining-score
+     :score next-score
      :measure-num (inc measure-num)
      :curves next-curves
      :timestamp next-timestamp}))
@@ -191,8 +191,6 @@
 
 (def token-handlers
   ;; can-handle? => handle pairs
-  ;; handler params [score expanded-score curves measure-num timestamp]
-  ;; returns [next-remaining-score next-expanded-score next-curves next-measure-num next-timestamp]
 
   {#(number? %) extract-normal-measure ;; normal measure handler
    #(= 'label %) set-label
@@ -225,10 +223,11 @@
             next-parse-state (handler parse-state)]
 
         (if (empty? (:score next-parse-state))
-          (let [foo (println next-parse-state)
-                {:keys [expanded-score curves]} next-parse-state
-                jump-data @*jump-data*]
-            [expanded-score curves jump-data])
+          (let [{:keys [expanded-score curves]} next-parse-state
+                jump-data @*jump-data*
+                return [expanded-score curves jump-data]]
+            return)
+
           (recur next-parse-state))))))
 
 (defn zip-curves
