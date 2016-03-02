@@ -6,7 +6,7 @@
 (def ^:dynamic *jump-data* nil)
 
 (defn gesture-record
-  "begin action must specify inital state for all mutations
+  "begin action must specify inital state for all curves
   {:gesture-name
      ;; first one is beginning of gesture
      [{:measure 1 :quant 1 :timestamp 1.12 :spec {:instr foo :freq 200 :amp 1}}
@@ -17,12 +17,12 @@
                       :quant quant
                       :timestamp timestamp
                       :spec g-spec}]
-    (with-meta [begin-action] {:arg-type :mutations})))
+    (with-meta [begin-action] {:arg-type :curves})))
 
 (defn record-begin-actions
-  [measure-num quant begin-actions mutations timestamp]
+  [measure-num quant begin-actions curves timestamp]
   (if (empty? begin-actions)
-    mutations
+    curves
     (reduce (fn [memo action]
               (println (:args action))
               (let [g-name (:name action)
@@ -32,12 +32,12 @@
                                              measure-num
                                              quant
                                              timestamp)})))
-            mutations
+            curves
             begin-actions)))
 
-(defn record-mutations [measure-num quant mutations-actions mutations timestamp]
-  (if (empty? mutations-actions)
-    mutations
+(defn record-curves [measure-num quant curves-actions curves timestamp]
+  (if (empty? curves-actions)
+    curves
     (reduce (fn [memo action]
               (let [g-name (:name action)
                     g-spec (:args action)
@@ -45,14 +45,14 @@
                                    :measure measure-num
                                    :quant quant
                                    :spec g-spec}
-                    gesture (mutations g-name)]
+                    gesture (curves g-name)]
                 (if-not gesture
                   (throw (Exception.
-                          (str "No gesture found for mutation: "
+                          (str "No gesture found for curve: "
                                g-name))))
-                (update-in mutations [g-name] conj action-record)))
-            mutations
-            mutations-actions)))
+                (update-in curves [g-name] conj action-record)))
+            curves
+            curves-actions)))
 
 (defn group-actions-by-type [actions]
   (group-by (fn [action]
@@ -61,7 +61,7 @@
                   (throw (Exception.
                           (str "Unrecognized action " (with-out-str (prn action))))))
                 (cond (= :begin action-type) :begin-actions
-                      (= :curve action-type) :mutation-actions
+                      (= :curve action-type) :curve-actions
                       :else :basic-scheduled-actions)))
             actions))
 
@@ -78,14 +78,14 @@
   (let [metadata {:beat-dur (beat-dur) :beats-per-bar @*beats-per-bar*}]
     (conj score (with-meta measure metadata))))
 
-(defn extract-measure [score measure-num mutations measure-timestamp]
+(defn extract-measure [score measure-num curves measure-timestamp]
   (loop [measure {}
          remaining-score score
-         mutations-acc mutations]
+         curves-acc curves]
     (let [quant (first remaining-score)
           actions (map eval (second remaining-score)) ;; eval the actions
           {:keys [basic-scheduled-actions
-                  mutation-actions
+                  curve-actions
                   begin-actions]} (group-actions-by-type actions)
           scheduled-actions (apply conj basic-scheduled-actions begin-actions)
           next-remaining-score (-> remaining-score rest rest)
@@ -94,41 +94,41 @@
                          measure (assoc measure quant (into [] scheduled-actions)))
 
           quant-timestamp (+ measure-timestamp (quant->duration quant))
-          next-mutations (record-begin-actions measure-num
+          next-curves (record-begin-actions measure-num
                                                quant
                                                begin-actions
-                                               mutations-acc
+                                               curves-acc
                                                quant-timestamp)
-          next-mutations (record-mutations measure-num
+          next-curves (record-curves measure-num
                                            quant
-                                           mutation-actions
-                                           next-mutations
+                                           curve-actions
+                                           next-curves
                                            quant-timestamp)]
 
       (cond
         (and (number? next-item-in-score) (< quant next-item-in-score))
-        (recur next-measure next-remaining-score next-mutations)
+        (recur next-measure next-remaining-score next-curves)
 
         :else [next-measure
                next-remaining-score
-               next-mutations
+               next-curves
                (inc-measure-timestamp measure-timestamp)]))))
 
 (defn- set-global [global]
-  (fn [remaining-score expanded-score mutations measure-num measure-timestamp]
+  (fn [remaining-score expanded-score curves measure-num measure-timestamp]
     (let [new-val (second remaining-score)
           next-remaining-score (-> remaining-score rest rest)]
       (reset! (var-get global) new-val)
-      [next-remaining-score expanded-score mutations measure-num measure-timestamp])))
+      [next-remaining-score expanded-score curves measure-num measure-timestamp])))
 
 (defn extract-normal-measure
-  [remaining-score expanded-score mutations measure-num timestamp]
+  [remaining-score expanded-score curves measure-num timestamp]
   (let [[next-measure
          next-remaining-score
-         next-mutations
+         next-curves
          next-timestamp] (extract-measure remaining-score
                                           measure-num
-                                          mutations
+                                          curves
                                           timestamp)
 
         next-expanded-score (if (empty? next-measure)
@@ -137,12 +137,12 @@
 
     [next-remaining-score
      next-expanded-score
-     next-mutations
+     next-curves
      (inc measure-num)
      next-timestamp]))
 
 (defn extract-silent-measure
-  [remaining-score expanded-score mutations measure-num timestamp]
+  [remaining-score expanded-score curves measure-num timestamp]
   (let [next-measure {0 []}
         next-remaining-score (rest remaining-score)
         next-expanded-score (add-measure-to-score expanded-score
@@ -150,22 +150,22 @@
         next-timestamp (inc-measure-timestamp timestamp)]
     [next-remaining-score
      next-expanded-score
-     mutations
+     curves
      (inc measure-num)
      next-timestamp]))
 
 (defn set-label
-  [remaining-score expanded-score mutations measure-num timestamp]
+  [remaining-score expanded-score curves measure-num timestamp]
   (let [label (second remaining-score)
         next-remaining-score (-> remaining-score rest rest)]
     (swap! *jump-data*
            (fn [md] (update-in md [:labels]
                                ;; dec measure-num to get index
                                #(assoc % label (dec measure-num)))))
-    [next-remaining-score expanded-score mutations measure-num timestamp]))
+    [next-remaining-score expanded-score curves measure-num timestamp]))
 
 (defn jump-to-label
-  [should-jump? remaining-score expanded-score mutations measure-num timestamp]
+  [should-jump? remaining-score expanded-score curves measure-num timestamp]
   (let [next-remaining-score (-> remaining-score rest rest)
         label (second remaining-score)
         jump {:label label
@@ -176,7 +176,7 @@
                                ;; dec measure-num to get index
                                #(assoc % (dec measure-num) jump))))
 
-    [next-remaining-score expanded-score mutations measure-num timestamp]))
+    [next-remaining-score expanded-score curves measure-num timestamp]))
 
 (defn true-for-n [times]
   (let [call-count* (atom 0)]
@@ -186,8 +186,8 @@
 
 (def token-handlers
   ;; can-handle? => handle pairs
-  ;; handler params [score expanded-score mutations measure-num timestamp]
-  ;; returns [next-remaining-score next-expanded-score next-mutations next-measure-num next-timestamp]
+  ;; handler params [score expanded-score curves measure-num timestamp]
+  ;; returns [next-remaining-score next-expanded-score next-curves next-measure-num next-timestamp]
 
   {#(number? %) extract-normal-measure ;; normal measure handler
    #(= 'label %) set-label
@@ -210,38 +210,38 @@
 
 (defn parse-score [input-score]
   (loop [expanded-score []
-         mutations {}
+         curves {}
          score input-score
          measure-num 1
          timestamp 0]
     (let [handler (resolve-handler score measure-num)
           [next-remaining-score
            next-expanded-score
-           next-mutations
+           next-curves
            next-measure-num
            next-timestamp] (handler score
                                     expanded-score
-                                    mutations
+                                    curves
                                     measure-num
                                     timestamp)]
 
       (if (empty? next-remaining-score)
         (let [jump-data @*jump-data*]
-          [next-expanded-score next-mutations jump-data])
+          [next-expanded-score next-curves jump-data])
         (recur next-expanded-score
-               next-mutations
+               next-curves
                next-remaining-score
                next-measure-num
                next-timestamp)))))
 
-(defn zip-mutations
-  "Appends matching mutations to begin actions in `score`
-  all actions will end with either a list of mutations or
+(defn zip-curves
+  "Appends matching curves to begin actions in `score`
+  all actions will end with either a list of curves or
   an empty vector."
-  [score mutations]
-  (let [score-with-mutations
-        (reduce (fn [updated-score [g-name g-mutation-list]]
-                  (let [{:keys [measure quant]} (first g-mutation-list)]
+  [score curves]
+  (let [score-with-curves
+        (reduce (fn [updated-score [g-name g-curve-list]]
+                  (let [{:keys [measure quant]} (first g-curve-list)]
                     (update-in
                      score
                      [(dec measure) quant]
@@ -250,20 +250,20 @@
                         (map (fn [action]
                                (if (and (= :begin (:action-type action))
                                         (= g-name (:name action)))
-                                 (add-mutations action g-mutation-list)
+                                 (add-curves action g-curve-list)
                                  action))
                              actions))))))
                 score
-                mutations)]
-    score-with-mutations))
+                curves)]
+    score-with-curves))
 
-(defn filter-empty-mutations
-  "returns mutations that have more than just a beginning action"
-  [mutations]
+(defn filter-empty-curves
+  "returns curves that have more than just a beginning action"
+  [curves]
   (into {}
-        (remove (fn [[g-name mutation-list]]
-                  (empty? (rest mutation-list)))
-                mutations)))
+        (remove (fn [[g-name curve-list]]
+                  (empty? (rest curve-list)))
+                curves)))
 
 (defmacro defscore
   "Define a ko score and prepare it for playing. A basic score consists
@@ -323,8 +323,8 @@
               *beats-per-bar* (atom 4)
               *jump-data* (atom {:labels {} :jumps {}})]
 
-      (let [[score mutations jump-data] (parse-score input-score)
-            score (zip-mutations score (filter-empty-mutations mutations))
+      (let [[score curves jump-data] (parse-score input-score)
+            score (zip-curves score (filter-empty-curves curves))
             score (with-meta score jump-data)]
 
         `(def ~score-name ~score)))))

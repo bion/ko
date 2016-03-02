@@ -72,4 +72,5 @@
                  (swap! kbd-notes* #(assoc note nil))))
              ::kbd-note-off-handler)
 
-(overtone.libs.event/remove-event-handler ::kbd-note-on-handler)
+(ot/remove-event-handler ::kbd-note-on-handler)
+(ot/remove-event-handler ::kbd-note-off-handler)

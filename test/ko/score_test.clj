@@ -16,17 +16,17 @@
   [{1 [(begin :ssg :my-gesture-name {:instr test-synth, :freq 200})
        (begin :ssg :other-gesture-name {:instr test-synth, :freq 400})]}])
 
-(def test-mutations
+(def test-curves
   {:my-gesture-name
    [{:measure 1, :quant 1, :timestamp 0N,
      :spec [:spec {:instr test-synth, :freq 200}]}
     {:spec {:freq [220 :exp], :amp [0.1 :exp]}, :timestamp 10/9}]})
 
-(facts "about `zip-mutations`"
+(facts "about `zip-curves`"
        (fact
         (let [score test-parsed-score
-              mutations test-mutations]
-          (zip-mutations score mutations) =>
+              curves test-curves]
+          (zip-curves score curves) =>
           [{1 ['(begin :ssg :my-gesture-name {:instr test-synth, :freq 200}
                        [{:measure 1, :quant 1, :timestamp 0N,
                          :spec [:spec {:instr test-synth, :freq 200}]}
@@ -34,12 +34,12 @@
                          :timestamp 10/9}])
                '(begin :ssg :other-gesture-name {:instr test-synth, :freq 400} [])]}])))
 
-(facts "about `filter-empty-mutations`"
-       (fact (let [mutations {:one [1 2 3] :two [1] :three [1 2]}]
-               (filter-empty-mutations mutations) => {:one [1 2 3] :three [1 2]})))
+(facts "about `filter-empty-curves`"
+       (fact (let [curves {:one [1 2 3] :two [1] :three [1 2]}]
+               (filter-empty-curves curves) => {:one [1 2 3] :three [1 2]})))
 
 (facts "about `parse-score`"
-       (let [[actions mutations jumps]
+       (let [[actions curves jumps]
              (parse-score
               '(beats-per-bar 4
                 beats-per-minute 108
@@ -55,7 +55,7 @@
                                          {:freq 400, :instr test-synth})
                                   (begin :ssg :my-gesture-name
                                          {:freq 200, :instr test-synth})]}]
-             expected-mutations {:my-gesture-name
+             expected-curves {:my-gesture-name
                                   [{:measure 1,
                                     :quant 1,
                                     :spec {:freq 200, :instr test-synth},
@@ -75,7 +75,7 @@
                               :labels
                               {:one 0}})]
          (fact actions => expected-actions)
-         (fact mutations => expected-mutations)
+         (fact curves => expected-curves)
          (fact jumps => expected-jumps)))
 
 (facts "about `true-for-n`"

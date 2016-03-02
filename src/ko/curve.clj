@@ -1,4 +1,4 @@
-(ns ko.mutations
+(ns ko.curve
   [:use [ko.synth-args]]
   [:require [overtone.core :as ot]])
 
@@ -59,15 +59,15 @@
 (defn- get-param-keys [g-events]
   (remove #{:instr} (->> g-events first :spec keys)))
 
-(defn mutations->envelopes
+(defn curves->envelopes
   "converts a vector of gesture states into a vector of hashes
   of the form {:param-name \"some param\" :envelope envelope}}"
   [gesture-events]
   (let [param-keys (get-param-keys gesture-events)
         initial (first gesture-events)
-        mutation-events (rest gesture-events)]
+        curve-events (rest gesture-events)]
     (for [param param-keys
-          :let [param-snapshots (filter #(param (% :spec)) mutation-events)]
+          :let [param-snapshots (filter #(param (% :spec)) curve-events)]
           :when (not (empty? param-snapshots))]
       (enveloped-param param initial param-snapshots))))
 
@@ -81,25 +81,25 @@
                   (conj () (:envelope %) 'ot/env-gen)])
                envelopes))))
 
-(defn apply-mutations
+(defn apply-curves
   "for each mutating param, removes the param from the arglist and
   injects an envelope in its place"
-  [s-template mutations]
-  (let [envelopes (mutations->envelopes mutations)
+  [s-template curves]
+  (let [envelopes (curves->envelopes curves)
         envelope-bindings (envelope-binding-form envelopes)
         param-list (remove-param (first s-template) (map :param-name envelopes))
         new-ugen-forms (conj () (last s-template) (vec envelope-bindings) 'let)
         new-template (conj () new-ugen-forms param-list)]
     new-template))
 
-(defn with-mutations
-  "Returns a function that plays the given synth with mutations applied"
-  [instr-name mutations templates*]
+(defn with-curves
+  "Returns a function that plays the given synth with curves applied"
+  [instr-name curves templates*]
   (let [s-template (instr-name @templates*)]
     (if-not s-template
       (throw (Exception. (str "no synth template found for: " instr-name))))
 
     (let [s-name (symbol (str (name instr-name) "-" (gensym)))
-          s-template (apply-mutations s-template mutations)
+          s-template (apply-curves s-template curves)
           [s-name params ugen-form] (ot/synth-form s-name s-template)]
       (define-synth s-name params ugen-form))))

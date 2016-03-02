@@ -1,7 +1,7 @@
 (ns ko.gesture-test
   [:require [overtone.core :as ot]]
   (:use midje.sweet
-        ko.mutations))
+        ko.curve))
 
 (fact "`remove-param` removes a parameter from a defsynth-style param list"
       (remove-param ['foo 1 'bar 2 'baz 3] (lazy-seq [:foo :baz])) => ['bar 2])
@@ -20,11 +20,11 @@
       => {:envelope (ot/envelope [100 300 200] [0.5 2.5] [:exp :exp])
           :param-name :freq})
 
-(fact "`mutations->envelopes` creates envelopes from mutations"
-      (let [mutations [{:measure 1 :quant 1 :timestamp 0N
+(fact "`curves->envelopes` creates envelopes from curves"
+      (let [curves [{:measure 1 :quant 1 :timestamp 0N
                         :spec {:instr :foo :freq 200 :amp 0.2}}
                        {:timestamp 10/9 :measure 2 :quant 3
                         :spec {:freq [2200 :exp]}}]]
-        (mutations->envelopes mutations) =>
+        (curves->envelopes curves) =>
         '({:envelope [200 1 -99 -99 2200 10/9 2 0]
            :param-name :freq})))

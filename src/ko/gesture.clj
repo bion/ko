@@ -1,14 +1,14 @@
 (ns ko.gesture
   [:require [overtone.core :as ot]]
-  [:use [ko.mutations]
+  [:use [ko.curve]
    [ko.synth-args]])
 
 (defrecord Action [name action-type gesture-type func args mutator]
   clojure.lang.IFn
   (invoke [this] (func args)))
 
-(defn add-mutations [action mutations]
-  ((:mutator action) action mutations))
+(defn add-curves [action curves]
+  ((:mutator action) action curves))
 
 (defmethod print-method Action [action writer]
   (.write writer (format "#<Action[%s]: %s %s %s>"
@@ -169,7 +169,7 @@
 
 (defn ssg-gest
   ([spec position] (ssg-gest spec position []))
-  ([spec position mutations]
+  ([spec position curves]
    (let [instr (:instr spec)]
      (if-not instr
        (throw (Exception. (str "no instr specified in `ssg` gesture"
@@ -178,9 +178,9 @@
            synth-args (flatten (into [] (dissoc spec :instr)))
            synth-args (resolve-synth-args synth-args)
            synth-args (conj synth-args position)
-           synth-fn (if (empty? mutations)
+           synth-fn (if (empty? curves)
                       instr
-                      (with-mutations instr-name mutations synth-templates*))]
+                      (with-curves instr-name curves synth-templates*))]
 
        [synth-fn synth-args]))))
 
@@ -194,9 +194,9 @@
         (swap! living-gestures*
                (fn [lgm] (assoc lgm g-name g-nodes)))))))
 
-(defn ssg-apply-mutations [spec position]
-  (fn [action mutations]
-    (let [[synth-func synth-args] (ssg-gest spec position mutations)
+(defn ssg-apply-curves [spec position]
+  (fn [action curves]
+    (let [[synth-func synth-args] (ssg-gest spec position curves)
           g-name (:name action)
           func (ssg-player g-name synth-func)]
       (assoc action :func func :args synth-args))))
@@ -212,4 +212,4 @@
       :gesture-type :ssg
       :func action-func
       :args synth-args
-      :mutator (ssg-apply-mutations spec position)})))
+      :mutator (ssg-apply-curves spec position)})))
