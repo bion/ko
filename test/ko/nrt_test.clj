@@ -1,10 +1,38 @@
 (ns ko.score-test
   (:use midje.sweet
-        ko.scheduling)
+        ko.scheduling
+        ko.gesture
+        ko.score
+        ko.util
+        ko.nrt)
   (:require [overtone.core :as ot]))
 
-;; [ 0.2, [\s_new, \NRTsine, 1001, 0, 0]].asRawOSC;
-;; -> Int8Array[ 35, 98, 117, 110, 100, 108, 101, 0, 0, 0, 0, 0, 51, 51, 51, 51, 0, 0, 0, 36, 47, 115, 95, 110, 101, 119, 0, 0, 44, 115, 105, 105, 105, 0, 0, 0, 78, 82, 84, 115, 105, 110, 101, 0, 0, 0, 3, -23, 0, 0, 0, 0, 0, 0, 0, 0 ];
+;; fixture generated with sclang code:
+;; x = [
+;; [0.0, [ \s_new, \sine, 1000, 0, 0, \freq, 1413 ]]
+;; [0.1, [ \s_new, \sine, 1001, 0, 0, \freq, 712 ]]
+;; [0.2, [ \s_new, \sine, 1002, 0, 0, \freq, 417 ]]
+;; [0.3, [ \s_new, \sine, 1003, 0, 0, \freq, 1238 ]]
+;; [0.4, [ \s_new, \sine, 1004, 0, 0, \freq, 996 ]]
+;; [3.0, [\c_set, 0, 0]] ];
+;; Score.write(x, "Users/bion/dev/ko/test/ko/fixtures/test_score.osc");
 
-(def input [ 0.2, ["s_new", :NRTsine, 1001, 0, 0]])
-(def result [35 98 117 110 100 108 101 0 0 0 0 0 51 51 51 51 0 0 0 36 47 115 95 110 101 119 0 0 44 115 105 105 105 0 0 0 78 82 84 115 105 110 101 0 0 0 3 -23 0 0 0 0 0 0 0 0])
+(init-nrt)
+(teardown-nrt)
+
+(ko-defsynth sine [freq 110]
+             (ot/out 0 (ot/sin-osc freq)))
+
+(defscore test-score
+  beats-per-bar 4
+  beats-per-minute 120
+  1 [(begin :ssg :foo {:instr sine :freq 1413})]
+  2 [(finish :foo)])
+
+(nrt-write-score-to-osc test-score "nrt_test.osc")
+
+(def fixture (read-binary-file "test/ko/fixtures/test_score.osc"))
+(def nrt-result (read-binary-file "/tmp/ko_nrt_test.osc"))
+
+(facts "about NRT"
+       (fact (.equals nrt-result fixture) => true))

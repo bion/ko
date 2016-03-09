@@ -13,7 +13,7 @@
      (* (- quant 1)
         (calc-beat-dur-ms beat-dur))))
 
-(defn- schedule-measure
+(defn schedule-measure
   "Each measure is a vector containing paired quant (decimal beat)
   and gesture data. Schedule measure's gesture's at their corresponding quant."
   [measure next-bar-timestamp beat-dur]
