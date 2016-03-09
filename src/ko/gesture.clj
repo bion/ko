@@ -1,7 +1,8 @@
 (ns ko.gesture
   [:require [overtone.core :as ot]]
   [:use [ko.curve]
-   [ko.synth-args]])
+   [ko.synth-args]
+   [overtone.sc.machinery.server.comms :refer [with-server-sync]]])
 
 (defrecord Action [name action-type gesture-type func args mutator]
   clojure.lang.IFn
@@ -62,21 +63,12 @@
   (doseq [group (vals @groups*)] (ot/node-free* group))
   (reset! groups* {}))
 
-;; TODO
-;; make `register-groups` func that takes a tree with group
-;; names as leafs and makes it real.
-;; e.g. (register-groups [:first-group [:first-child :second-child]
-;;                       :adjacent-to-first-group])
-(defn register-group
-  "Registers a new group, allowing it to be referenced by
-  name as a position for `begin` events. If a target is
-  provided, can be either a `group` or a name of an already
-  referenced group."
+(defn register-group-async
   ([group-name]
-   (register-group group-name (default-group) :head))
+   (register-group-async group-name (default-group) :head))
 
   ([group-name target]
-   (register-group group-name target :after))
+   (register-group-async group-name target :after))
 
   ([group-name target add-action]
    (let [existing-group (@groups* group-name)]
@@ -89,6 +81,24 @@
      (swap! groups* #(assoc % group-name new-group))
      (println (str "registered group: " group-name))
      new-group)))
+
+(defn register-group
+  "Registers a new group, allowing it to be referenced by
+  name as a position for `begin` events. If a target is
+  provided, can be either a `group` or a name of an already
+  referenced group."
+  ([group-name]
+   (register-group group-name (default-group) :head))
+
+  ([group-name target]
+   (register-group group-name target :after))
+
+  ([group-name target add-action]
+   (with-server-sync
+     #(register-group-async group-name
+                            target
+                            add-action)
+     (str "registering ko group " group-name))))
 
 (defn resolve-position [position]
   (if position

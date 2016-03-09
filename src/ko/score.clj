@@ -24,7 +24,6 @@
   (if (empty? begin-actions)
     curves
     (reduce (fn [memo action]
-              (println (:args action))
               (let [g-name (:name action)
                     g-spec (apply hash-map (rest (:args action)))]
                 (merge memo {g-name
