@@ -61,9 +61,9 @@
 
 (clojure.pprint/pprint test-score)
 (play-score test-score)
-(ot/pp-node-tree)
-(ot/stop)
+(stop-score test-score)
 
+(ot/pp-node-tree)
 (clojure.pprint/pprint (ot/midi-connected-devices))
 
 (ot/event-debug-on)

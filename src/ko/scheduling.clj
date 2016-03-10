@@ -57,3 +57,7 @@
 
 (defn play-score [score]
   (schedule-cycle score 0 (ot/now)))
+
+(defn stop-score [score]
+  (ot/stop)
+  (reset! (:living-gestures (meta score)) {}))
