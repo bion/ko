@@ -19,7 +19,7 @@
 
 (def source-spec {:instr test-synth
                   :freq 220
-                  :amp 0
+                  :amp -12
                   :bus "test-bus"})
 
 (def filt-spec {:instr test-filter
@@ -30,19 +30,34 @@
 (register-group "source")
 (register-group "filter" "source" :after)
 
+(defn gest-begin [name freq]
+  (begin :ssg name (assoc source-spec :freq freq) "source"))
+
+(defn gest-curve [name freq]
+  (let [freq (ot/midi->hz (ot/note freq))]
+    (curve name {:freq [freq :exp]})))
+
 (defscore test-score
   beats-per-bar 4
   beats-per-minute 108
 
-  ;; label :one
-  1 [(begin :ssg :g-one (assoc source-spec :freq 440) "source")
+  1 [
+     (gest-begin :one :F4)
+     (gest-begin :two :Gb4)
+     (gest-begin :thr :Bb4)
+     (gest-begin :fou :F5)
+     (gest-begin :fiv :Bb5)
+     (gest-begin :six :F6)
      (begin :ssg :filt filt-spec "filter")]
 
-  silent
-
-  ;; jump-to :one
-  1 [(curve :filt {:cutoff [10000 :exp]})]
-  3 [(finish :g-one :filt)])
+  1 [(gest-curve :one :F3)
+     (gest-curve :two :Gb3)
+     (gest-curve :thr :Bb3)
+     (gest-curve :fou :F4)
+     (gest-curve :fiv :Bb4)
+     (gest-curve :six :F5)
+     (curve :filt {:cutoff [10000 :exp]})]
+  3 [(finish :one :two :thr :fou :fiv :six :filt)])
 
 (clojure.pprint/pprint test-score)
 (play-score test-score)

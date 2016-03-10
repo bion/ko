@@ -81,24 +81,25 @@
   (loop [measure {}
          remaining-score score
          curves-acc curves]
-    (let [quant (first remaining-score)
-          actions (map eval (second remaining-score)) ;; eval the actions
+    (let [quant                   (first remaining-score)
+                                  ;; eval the actions
+          actions                 (map eval (second remaining-score))
           {:keys [basic-scheduled-actions
                   curve-actions
                   begin-actions]} (group-actions-by-type actions)
-          scheduled-actions (apply conj basic-scheduled-actions begin-actions)
-          next-remaining-score (-> remaining-score rest rest)
-          next-item-in-score (first next-remaining-score)
-          next-measure (if (empty? scheduled-actions)
-                         measure (assoc measure quant (into [] scheduled-actions)))
+          scheduled-actions       (apply conj basic-scheduled-actions begin-actions)
+          next-remaining-score    (-> remaining-score rest rest)
+          next-item-in-score      (first next-remaining-score)
+          next-measure            (if (empty? scheduled-actions)
+          measure                 (assoc measure quant (into [] scheduled-actions)))
 
-          quant-timestamp (+ measure-timestamp (quant->duration quant))
-          next-curves (record-begin-actions measure-num
+          quant-timestamp         (+ measure-timestamp (quant->duration quant))
+          next-curves             (record-begin-actions measure-num
                                             quant
                                             begin-actions
                                             curves-acc
                                             quant-timestamp)
-          next-curves (record-curves measure-num
+          next-curves             (record-curves measure-num
                                      quant
                                      curve-actions
                                      next-curves
@@ -319,7 +320,8 @@
               *jump-data* (atom {:labels {} :jumps {}})]
 
       (let [[score curves jump-data] (parse-score input-score)
-            score (zip-curves score (filter-empty-curves curves))
-            score (with-meta score jump-data)]
+            score                    (zip-curves score (filter-empty-curves curves))
+            metadata                 (merge jump-data {:living-gestures (atom {})})
+            score                    (with-meta score metadata)]
 
         `(def ~score-name ~score)))))

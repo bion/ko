@@ -6,7 +6,7 @@
 
 (defrecord Action [name action-type gesture-type func args mutator]
   clojure.lang.IFn
-  (invoke [this] (func args)))
+  (invoke [this living-gestures*] (func living-gestures* args)))
 
 (defn add-curves [action curves]
   ((:mutator action) action curves))
@@ -19,7 +19,6 @@
                          (str (:args action)))))
 
 (defonce synth-templates* (atom {}))
-(defonce living-gestures* (atom {}))
 (defonce groups* (atom {}))
 
 (defn remove-from-atom-map [atom-map k]
@@ -133,7 +132,7 @@
   "Send control messages to a running gesture.
   Messages are specified as alternating argument key value pairs"
   [g-name & g-params]
-  (let [action-func (fn [[action-g-name action-g-params]]
+  (let [action-func (fn [living-gestures* [action-g-name action-g-params]]
                       (println (str "adjust " g-name))
                       ;; assumes nodes are stored here
                       (let [g-nodes (@living-gestures* action-g-name)]
@@ -161,8 +160,8 @@
 (defn finish
   "Send end message to gestures and remove from `living-gestures*`"
   [& g-names]
-  (let [action-func (fn [action-g-names]
-                      (println "finish " g-names)
+  (let [action-func (fn [living-gestures* action-g-names]
+                      (apply println (conj g-names "finish"))
                       (doseq [node (map @living-gestures* action-g-names)]
                         (ot/kill node))
                       (remove-from-atom-map living-gestures* action-g-names))]
@@ -195,7 +194,7 @@
        [synth-fn synth-args]))))
 
 (defn ssg-player [g-name synth-func]
-  (fn [action-args]
+  (fn [living-gestures* action-args]
     (if (g-name @living-gestures*)
       (println "didn't begin" g-name
                ", key already found in living-gestures")
