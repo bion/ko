@@ -174,7 +174,6 @@
 
 ;; ________________________________________________________________
 ;; :ssg gesture type
-;; ________________________________________________________________
 
 (defn ssg-gest
   ([spec position] (ssg-gest spec position []))
@@ -206,15 +205,15 @@
 (defn ssg-apply-curves [spec position]
   (fn [action curves]
     (let [[synth-func synth-args] (ssg-gest spec position curves)
-          g-name (:name action)
-          func (ssg-player g-name synth-func)]
+          g-name                  (:name action)
+          func                    (ssg-player g-name synth-func)]
       (assoc action :func func :args synth-args))))
 
 (defmethod begin :ssg
   [g-type g-name spec & remaining]
-  (let [position (resolve-position (first remaining))
+  (let [position                (resolve-position (first remaining))
         [synth-func synth-args] (ssg-gest spec position)
-        action-func (ssg-player g-name synth-func)]
+        action-func             (ssg-player g-name synth-func)]
     (map->Action
      {:name g-name
       :action-type :begin
@@ -222,3 +221,20 @@
       :func action-func
       :args synth-args
       :mutator (ssg-apply-curves spec position)})))
+
+;; ________________________________________________________________
+;; :anon gesture type
+
+(defmethod begin :anon
+  [g-type spec & remaining]
+  (let [position                (resolve-position (first remaining))
+        [synth-func synth-args] (ssg-gest spec position)
+        action-func             (fn [living-gestures* action-args]
+                                  (apply synth-func action-args))]
+    (map->Action
+     {:name (str "anon-" (gensym))
+      :action-type :begin
+      :gesture-type :ssg
+      :func action-func
+      :args synth-args
+      :mutator #(throw (Exception. "can't mutate an :anon gesture"))})))
