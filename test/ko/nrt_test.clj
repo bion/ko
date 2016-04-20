@@ -1,5 +1,5 @@
 (ns ko.score-test
-  (:use midje.sweet
+  (:use clojure.test
         ko.scheduling)
   (:require [overtone.core :as ot]))
 
