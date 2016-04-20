@@ -223,7 +223,7 @@
       :mutator (ssg-apply-curves spec position)})))
 
 ;; ________________________________________________________________
-;; :anon gesture type
+;; :position gesture type
 
 (defmethod begin :anon
   [g-type spec & remaining]
@@ -231,6 +231,7 @@
         [synth-func synth-args] (ssg-gest spec position)
         action-func             (fn [living-gestures* action-args]
                                   (apply synth-func action-args))]
+
     (map->Action
      {:name (str "anon-" (gensym))
       :action-type :begin
