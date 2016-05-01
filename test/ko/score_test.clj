@@ -37,51 +37,45 @@
     (is (= (filter-empty-curves curves)
            {:one [1 2 3] :three [1 2]}))))
 
-(comment
-  (deftest parse-score-test
-    (binding [*beats-per-minute* (atom 60)
-              *beats-per-bar* (atom 4)
-              *jump-data* (atom {:labels {} :jumps {}})]
+(deftest parse-score-test
+  (let [[actions curves jumps]
+        (parse-score
+         '(beats-per-bar 4
+           beats-per-minute 108
 
-      (let [[actions curves jumps]
-            (parse-score
-             '(beats-per-bar
-               4
-               beats-per-minute 108
+           label :one
+           1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
+              (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
 
-               label :one
-               1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
-                  (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
-
-               jump-to :one
-               3 [(curve :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
-            expected-actions [{1
-                               [(begin :ssg :other-gesture-name
-                                       {:freq 400, :instr test-synth})
-                                (begin :ssg :my-gesture-name
-                                       {:freq 200, :instr test-synth})]}]
-            expected-curves {:my-gesture-name
-                             [{:measure 1,
-                               :quant 1,
-                               :spec {:freq 200, :instr test-synth},
-                               :timestamp 0N}
-                              {:measure 2,
-                               :quant 3,
-                               :spec {:amp [0.1 :exp], :freq [220 :exp]},
-                               :timestamp 10/3}],
-                             :other-gesture-name
-                             [{:measure 1,
-                               :quant 1,
-                               :spec {:freq 400, :instr test-synth},
-                               :timestamp 0N}]}
-            expected-jumps {:jumps
-                            {1 {:label :one :should-jump? fn?}}
-                            :labels
-                            {:one 0}}]
-        (are [x y] (= x y)
-          actions expected-actions
-          curves expected-curves
-          jumps expected-jumps)))))
+           jump-to :one
+           3 [(curve :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
+        expected-actions [{1
+                           [(begin :ssg :other-gesture-name
+                                   {:freq 400, :instr test-synth})
+                            (begin :ssg :my-gesture-name
+                                   {:freq 200, :instr test-synth})]}]
+        expected-curves {:my-gesture-name
+                         [{:measure 1,
+                           :quant 1,
+                           :spec {:freq 200, :instr test-synth},
+                           :timestamp 0N}
+                          {:measure 2,
+                           :quant 3,
+                           :spec {:amp [0.1 :exp], :freq [220 :exp]},
+                           :timestamp 10/3}],
+                         :other-gesture-name
+                         [{:measure 1,
+                           :quant 1,
+                           :spec {:freq 400, :instr test-synth},
+                           :timestamp 0N}]}
+        expected-jumps {:jumps
+                        {1 {:label :one :should-jump? fn?}}
+                        :labels
+                        {:one 0}}]
+    (are [x y] (= x y)
+      actions expected-actions
+      curves expected-curves
+      jumps expected-jumps)))
 
 (deftest true-for-n-test
   (let [instance (true-for-n 2)]
