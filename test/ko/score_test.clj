@@ -22,15 +22,14 @@
      :spec [:spec {:instr test-synth, :freq 200}]}
     {:spec {:freq [220 :exp], :amp [0.1 :exp]}, :timestamp 10/9}]})
 
-(comment
-  (deftest zip-curves-test
-    (is (= (zip-curves test-parsed-score test-curves)
-           [{1 ['(begin :ssg :my-gesture-name {:instr test-synth, :freq 200}
-                        [{:measure 1, :quant 1, :timestamp 0N,
-                          :spec [:spec {:instr test-synth, :freq 200}]}
-                         {:spec {:freq [220 :exp], :amp [0.1 :exp]},
-                          :timestamp 10/9}])
-                '(begin :ssg :other-gesture-name {:instr test-synth, :freq 400} [])]}]))))
+(deftest zip-curves-test
+  (is (= (zip-curves test-parsed-score test-curves)
+         [{1 ['(begin :ssg :my-gesture-name {:instr test-synth, :freq 200}
+                      [{:measure 1, :quant 1, :timestamp 0N,
+                        :spec [:spec {:instr test-synth, :freq 200}]}
+                       {:spec {:freq [220 :exp], :amp [0.1 :exp]},
+                        :timestamp 10/9}])
+              '(begin :ssg :other-gesture-name {:instr test-synth, :freq 400} [])]}])))
 
 (deftest filter-empty-curves-test
   (let [curves {:one [1 2 3] :two [1] :three [1 2]}]
@@ -41,14 +40,14 @@
   (let [[actions curves jumps]
         (parse-score
          '(beats-per-bar 4
-           beats-per-minute 108
+                         beats-per-minute 108
 
-           label :one
-           1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
-              (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
+                         label :one
+                         1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
+                            (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
 
-           jump-to :one
-           3 [(curve :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
+                         jump-to :one
+                         3 [(curve :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
         expected-actions [{1
                            [(begin :ssg :other-gesture-name
                                    {:freq 400, :instr test-synth})

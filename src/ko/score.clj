@@ -148,130 +148,130 @@
                         :curves next-curves
                         :timestamp next-timestamp})))
 
-  (defn extract-silent-measure
-    [parse-state]
-    (let [next-measure {0 []}
-          {:keys [score expanded-score measure-num timestamp]} parse-state
-          next-score (rest score)
-          next-expanded-score (add-measure-to-score expanded-score
-                                                    next-measure
-                                                    (:beats-per-bar parse-state)
-                                                    (:beats-per-minute parse-state))
-          next-timestamp (inc-measure-timestamp timestamp)]
-      (assoc parse-state
-             :score next-score
-             :measure-num (inc measure-num)
-             :expanded-score next-expanded-score
-             :timestamp next-timestamp)))
+(defn extract-silent-measure
+  [parse-state]
+  (let [next-measure {0 []}
+        {:keys [score expanded-score measure-num timestamp]} parse-state
+        next-score (rest score)
+        next-expanded-score (add-measure-to-score expanded-score
+                                                  next-measure
+                                                  (:beats-per-bar parse-state)
+                                                  (:beats-per-minute parse-state))
+        next-timestamp (inc-measure-timestamp timestamp)]
+    (assoc parse-state
+           :score next-score
+           :measure-num (inc measure-num)
+           :expanded-score next-expanded-score
+           :timestamp next-timestamp)))
 
-  (defn set-label
-    [parse-state]
-    (let [{:keys [score measure-num]} parse-state
-          label (second score)
-          next-score (-> score rest rest)
-          next-jump-data (update-in (:jump-data parse-state) [:labels]
-                                    ;; dec measure-num to get index
-                                    #(assoc % label (dec measure-num)))]
+(defn set-label
+  [parse-state]
+  (let [{:keys [score measure-num]} parse-state
+        label (second score)
+        next-score (-> score rest rest)
+        next-jump-data (update-in (:jump-data parse-state) [:labels]
+                                  ;; dec measure-num to get index
+                                  #(assoc % label (dec measure-num)))]
 
-      (assoc parse-state :score next-score :jump-data next-jump-data)))
+    (assoc parse-state :score next-score :jump-data next-jump-data)))
 
-  (defn jump-to-label
-    [should-jump? parse-state]
-    (let [{:keys [score measure-num]} parse-state
-          next-score (-> score rest rest)
-          label (second score)
-          jump {:label label
-                :should-jump? should-jump?}
-          next-jump-data (update-in (:jump-data parse-state) [:jumps]
-                                    ;; dec measure-num to get index
-                                    #(assoc % (dec measure-num) jump))]
+(defn jump-to-label
+  [should-jump? parse-state]
+  (let [{:keys [score measure-num]} parse-state
+        next-score (-> score rest rest)
+        label (second score)
+        jump {:label label
+              :should-jump? should-jump?}
+        next-jump-data (update-in (:jump-data parse-state) [:jumps]
+                                  ;; dec measure-num to get index
+                                  #(assoc % (dec measure-num) jump))]
 
-      (assoc parse-state :score next-score :jump-data next-jump-data)))
+    (assoc parse-state :score next-score :jump-data next-jump-data)))
 
-  (defn true-for-n [times]
-    (let [call-count* (atom 0)]
-      #(do
-         (reset! call-count* (inc @call-count*))
-         (<= @call-count* times))))
+(defn true-for-n [times]
+  (let [call-count* (atom 0)]
+    #(do
+       (reset! call-count* (inc @call-count*))
+       (<= @call-count* times))))
 
-  (def token-handlers
-    ;; can-handle? => handle pairs
+(def token-handlers
+  ;; can-handle? => handle pairs
 
-    {#(number? %) extract-normal-measure ;; normal measure handler
-     #(= 'label %) set-label
-     #(= 'jump-to %) (partial jump-to-label (true-for-n 1))
-     #(= 'silent %) extract-silent-measure ;; insert one measure of silence
-     #(= 'beats-per-bar %) (partial set-key :beats-per-bar)
-     #(= 'beats-per-minute %) (partial set-key :beats-per-minute)})
+  {#(number? %) extract-normal-measure ;; normal measure handler
+   #(= 'label %) set-label
+   #(= 'jump-to %) (partial jump-to-label (true-for-n 1))
+   #(= 'silent %) extract-silent-measure ;; insert one measure of silence
+   #(= 'beats-per-bar %) (partial set-key :beats-per-bar)
+   #(= 'beats-per-minute %) (partial set-key :beats-per-minute)})
 
-  (defn resolve-handler [score measure-num]
-    (let [next-token (first score)
-          handler (last (first (filter
-                                (fn [[can-handle? handle]]
-                                  (can-handle? next-token))
-                                token-handlers)))]
-      (if (nil? handler) (throw
-                          (Exception.
-                           (str "Unrecognized input around measure " measure-num
-                                ": " score)))
-          handler)))
+(defn resolve-handler [score measure-num]
+  (let [next-token (first score)
+        handler (last (first (filter
+                              (fn [[can-handle? handle]]
+                                (can-handle? next-token))
+                              token-handlers)))]
+    (if (nil? handler) (throw
+                        (Exception.
+                         (str "Unrecognized input around measure " measure-num
+                              ": " score)))
+        handler)))
 
-  (defn parse-score [input-score]
-    (let [initial {:beats-per-minute 60
-                   :beats-per-bar 4
-                   :jump-data {:labels {} :jumps {}}
-                   :expanded-score []
-                   :curves {}
-                   :score input-score
-                   :measure-num 1
-                   :timestamp 0}]
-      (loop [parse-state initial]
-        (let [{:keys [score measure-num]} parse-state
-              handler (resolve-handler score measure-num)
-              next-parse-state (handler parse-state)]
+(defn parse-score [input-score]
+  (let [initial {:beats-per-minute 60
+                 :beats-per-bar 4
+                 :jump-data {:labels {} :jumps {}}
+                 :expanded-score []
+                 :curves {}
+                 :score input-score
+                 :measure-num 1
+                 :timestamp 0}]
+    (loop [parse-state initial]
+      (let [{:keys [score measure-num]} parse-state
+            handler (resolve-handler score measure-num)
+            next-parse-state (handler parse-state)]
 
-          (s/validate ScoreParseState next-parse-state)
+        (s/validate ScoreParseState next-parse-state)
 
-          (if (empty? (:score next-parse-state))
-            (let [{:keys [expanded-score curves jump-data]} next-parse-state
-                  return [expanded-score curves jump-data]]
-              return)
+        (if (empty? (:score next-parse-state))
+          (let [{:keys [expanded-score curves jump-data]} next-parse-state
+                return [expanded-score curves jump-data]]
+            return)
 
-            (recur next-parse-state))))))
+          (recur next-parse-state))))))
 
-  (defn zip-curves
-    "Appends matching curves to begin actions in `score`
+(defn zip-curves
+  "Appends matching curves to begin actions in `score`
   all actions will end with either a list of curves or
   an empty vector."
-    [score curves]
-    (let [score-with-curves
-          (reduce (fn [updated-score [g-name g-curve-list]]
-                    (let [{:keys [measure quant]} (first g-curve-list)]
-                      (update-in
-                       score
-                       [(dec measure) quant]
-                       (fn [actions]
-                         (vec
-                          (map (fn [action]
-                                 (if (and (= :begin (:action-type action))
-                                          (= g-name (:name action)))
-                                   (add-curves action g-curve-list)
-                                   action))
-                               actions))))))
-                  score
-                  curves)]
-      score-with-curves))
+  [score curves]
+  (let [score-with-curves
+        (reduce (fn [updated-score [g-name g-curve-list]]
+                  (let [{:keys [measure quant]} (first g-curve-list)]
+                    (update-in
+                     score
+                     [(dec measure) quant]
+                     (fn [actions]
+                       (vec
+                        (map (fn [action]
+                               (if (and (= :begin (:action-type action))
+                                        (= g-name (:name action)))
+                                 (add-curves action g-curve-list)
+                                 action))
+                             actions))))))
+                score
+                curves)]
+    score-with-curves))
 
-  (defn filter-empty-curves
-    "returns curves that have more than just a beginning action"
-    [curves]
-    (into {}
-          (remove (fn [[g-name curve-list]]
-                    (empty? (rest curve-list)))
-                  curves)))
+(defn filter-empty-curves
+  "returns curves that have more than just a beginning action"
+  [curves]
+  (into {}
+        (remove (fn [[g-name curve-list]]
+                  (empty? (rest curve-list)))
+                curves)))
 
-  (defmacro defscore
-    "Define a ko score and prepare it for playing. A basic score consists
+(defmacro defscore
+  "Define a ko score and prepare it for playing. A basic score consists
   of number vector pairs. Numbers indicate beats in a measure e.g. 1.5
   is the first offbeat of the measure. The vector contains `begin`, `adjust`,
   `finish` and `curve` actions to be executed at the time that corresponds with the
@@ -321,12 +321,12 @@
   and specifying a no actions take place in a measure:
 
   silent"
-    [score-name & input-score]
-    (if (empty? input-score)
-      []
-      (let [[score curves jump-data] (parse-score input-score)
-            score                    (zip-curves score (filter-empty-curves curves))
-            metadata                 (merge jump-data {:living-gestures (atom {})})
-            score                    (with-meta score metadata)]
+  [score-name & input-score]
+  (if (empty? input-score)
+    []
+    (let [[score curves jump-data] (parse-score input-score)
+          score                    (zip-curves score (filter-empty-curves curves))
+          metadata                 (merge jump-data {:living-gestures (atom {})})
+          score                    (with-meta score metadata)]
 
-        `(def ~score-name ~score))))
+      `(def ~score-name ~score))))
