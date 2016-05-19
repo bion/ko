@@ -39,15 +39,18 @@
 (deftest parse-score-test
   (let [[actions curves jumps]
         (parse-score
-         '(beats-per-bar 4
-                         beats-per-minute 108
+         '(
+           (beats-per-bar 4)
+           (beats-per-minute 108)
 
-                         label :one
-                         1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
-                            (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
+           (label :one)
+           1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
+              (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
 
-                         jump-to :one
-                         3 [(curve :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
+           (jump-to :one)
+
+           3 [(curve :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
+
         expected-actions [{1
                            [(begin :ssg :other-gesture-name
                                    {:freq 400, :instr test-synth})
