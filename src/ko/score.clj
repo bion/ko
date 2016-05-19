@@ -69,10 +69,11 @@
   (* (beat-dur bpm) (- quant 1)))
 
 (defn- inc-measure-timestamp [timestamp bpm bpb]
+  (println (+ timestamp (* (beat-dur bpm) bpb)))
   (+ timestamp (* (beat-dur bpm) bpb)))
 
-(defn- add-measure-to-score [score measure bpm bpb]
-  (let [metadata {:beat-dur (beat-dur bpm) :beats-per-bar bpb}]
+(defn- add-measure-to-score [score measure beats-per-minute beats-per-bar]
+  (let [metadata {:beat-dur (beat-dur beats-per-minute) :beats-per-bar beats-per-bar}]
     (conj score (with-meta measure metadata))))
 
 (defn extract-measure [score measure-num curves measure-timestamp beats-per-minute beats-per-bar]
@@ -112,8 +113,8 @@
                next-remaining-score
                next-curves
                (inc-measure-timestamp measure-timestamp
-                                      beats-per-bar
-                                      beats-per-minute)]))))
+                                      beats-per-minute
+                                      beats-per-bar)]))))
 
 (defn- set-key [key parse-state]
   (let [score (:score parse-state)
@@ -139,8 +140,8 @@
                               expanded-score
                               (add-measure-to-score expanded-score
                                                     next-measure
-                                                    (:beats-per-bar parse-state)
-                                                    (:beats-per-minute parse-state)))]
+                                                    (:beats-per-minute parse-state)
+                                                    (:beats-per-bar parse-state)))]
 
     (merge parse-state {:expanded-score next-expanded-score
                         :score next-score
@@ -151,13 +152,16 @@
 (defn extract-silent-measure
   [parse-state]
   (let [next-measure {0 []}
-        {:keys [score expanded-score measure-num timestamp]} parse-state
+        {:keys [score expanded-score measure-num
+                timestamp beats-per-minute beats-per-bar]} parse-state
         next-score (rest score)
         next-expanded-score (add-measure-to-score expanded-score
                                                   next-measure
-                                                  (:beats-per-bar parse-state)
-                                                  (:beats-per-minute parse-state))
-        next-timestamp (inc-measure-timestamp timestamp)]
+                                                  (:beats-per-minute parse-state)
+                                                  (:beats-per-bar parse-state))
+        next-timestamp (inc-measure-timestamp timestamp
+                                              beats-per-minute
+                                              beats-per-bar)]
     (assoc parse-state
            :score next-score
            :measure-num (inc measure-num)

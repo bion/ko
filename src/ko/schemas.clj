@@ -15,4 +15,4 @@
    (s/required-key :curves) {s/Keyword [s/Any]}
    (s/required-key :score) [s/Any]
    (s/required-key :measure-num) s/Int
-   (s/required-key :timestamp) s/Int})
+   (s/required-key :timestamp) s/Num})

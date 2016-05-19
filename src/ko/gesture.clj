@@ -154,7 +154,7 @@
    {:name g-name
     :action-type :curve
     :gesture-type :ssg
-    :func #(throw (Exception. "Mutate actions cannot be invoked"))
+    :func #(throw (Exception. "Curve actions cannot be invoked"))
     :args g-spec}))
 
 (defn finish
