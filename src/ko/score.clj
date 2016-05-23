@@ -69,7 +69,6 @@
   (* (beat-dur bpm) (- quant 1)))
 
 (defn- inc-measure-timestamp [timestamp bpm bpb]
-  (println (+ timestamp (* (beat-dur bpm) bpb)))
   (+ timestamp (* (beat-dur bpm) bpb)))
 
 (defn- add-measure-to-score [score measure beats-per-minute beats-per-bar]
@@ -116,10 +115,9 @@
                                       beats-per-minute
                                       beats-per-bar)]))))
 
-(defn- set-key [key parse-state]
+(defn- set-key [key new-val parse-state]
   (let [score (:score parse-state)
-        new-val (second score)
-        next-score (-> score rest rest)]
+        next-score (rest score)]
     (assoc parse-state :score next-score key new-val)))
 
 (defn extract-normal-measure
@@ -169,10 +167,9 @@
            :timestamp next-timestamp)))
 
 (defn set-label
-  [parse-state]
+  [label parse-state]
   (let [{:keys [score measure-num]} parse-state
-        label (second score)
-        next-score (-> score rest rest)
+        next-score (rest score)
         next-jump-data (update-in (:jump-data parse-state) [:labels]
                                   ;; dec measure-num to get index
                                   #(assoc % label (dec measure-num)))]
@@ -192,33 +189,39 @@
 
     (assoc parse-state :score next-score :jump-data next-jump-data)))
 
+(defn label [label-name]
+  (partial set-label label-name))
+
 (defn true-for-n [times]
   (let [call-count* (atom 0)]
     #(do
        (reset! call-count* (inc @call-count*))
        (<= @call-count* times))))
 
-(def token-handlers
-  ;; can-handle? => handle pairs
+(defn jump
+  ([label-name] (jump label-name (true-for-n 1)))
+  ([label-name should-jump?]
+   (partial jump-to-label should-jump?)))
 
-  {#(number? %) extract-normal-measure ;; normal measure handler
-   #(= 'label %) set-label
-   #(= 'jump-to %) (partial jump-to-label (true-for-n 1))
-   #(= 'silent %) extract-silent-measure ;; insert one measure of silence
-   #(= 'beats-per-bar %) (partial set-key :beats-per-bar)
-   #(= 'beats-per-minute %) (partial set-key :beats-per-minute)})
+(defn silent []
+  extract-silent-measure)
+
+(defn beats-per-bar [bpb]
+  (partial set-key :beats-per-bar bpb))
+
+(defn beats-per-minute [bpm]
+  (partial set-key :beats-per-minute bpm))
 
 (defn resolve-handler [score measure-num]
   (let [next-token (first score)
-        handler (last (first (filter
-                              (fn [[can-handle? handle]]
-                                (can-handle? next-token))
-                              token-handlers)))]
-    (if (nil? handler) (throw
-                        (Exception.
-                         (str "Unrecognized input around measure " measure-num
-                              ": " score)))
-        handler)))
+        handler (if (number? next-token)
+                  extract-normal-measure
+                  (eval next-token))]
+    (if-not (fn? handler) (throw
+                           (Exception.
+                            (str "Unrecognized input around measure " measure-num
+                                 ": " score)))
+            handler)))
 
 (defn parse-score [input-score]
   (let [initial {:beats-per-minute 60

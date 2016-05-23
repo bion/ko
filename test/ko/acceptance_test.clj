@@ -2,7 +2,7 @@
   (:require [overtone.core :as ot] :reload)
   (:use [ko.gesture]
         [ko.scheduling]
-        [ko.score :only (defscore)] :reload))
+        [ko.score] :reload))
 
 (if (ot/server-connected?)
   (do (ot/stop)
@@ -38,8 +38,8 @@
     (curve name {:freq [freq :exp]})))
 
 (defscore test-score
-  beats-per-bar 4
-  beats-per-minute 216
+  (beats-per-bar 4)
+  (beats-per-minute 108)
 
   1 [
      (gest-begin :one :F4)
