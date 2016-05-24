@@ -1,15 +1,17 @@
 (ns ko.gesture
   [:require [overtone.core :as ot]]
   [:use [ko.curve]
+   [com.rpl.specter]
    [ko.synth-args]
    [overtone.sc.machinery.server.comms :refer [with-server-sync]]])
 
 (defrecord Action [name action-type gesture-type func args mutator]
   clojure.lang.IFn
-  (invoke [this living-gestures*] (func living-gestures* args)))
+  (invoke [this living-gestures*] (func living-gestures* args))
+  (applyTo [this args] (clojure.lang.AFn/applyToHelper this args)))
 
 (defn add-curves [action curves]
-  ((:mutator action) action curves))
+  ((:add-curves-fn action) action curves))
 
 (defmethod print-method Action [action writer]
   (.write writer (format "#<Action[%s]: %s %s %s>"
@@ -153,7 +155,6 @@
   (map->Action
    {:name g-name
     :action-type :curve
-    :gesture-type :ssg
     :func #(throw (Exception. "Curve actions cannot be invoked"))
     :args g-spec}))
 
@@ -180,7 +181,7 @@
   ([spec position curves]
    (let [instr (:instr spec)]
      (if-not instr
-       (throw (Exception. (str "no instr specified in `ssg` gesture"
+       (throw (Exception. (str "no instr specified in single-synth gesture"
                                " with `spec`: " spec))))
      (let [instr-name (keyword (:name instr))
            synth-args (flatten (into [] (dissoc spec :instr)))
@@ -195,16 +196,17 @@
 (defn ssg-player [g-name synth-func]
   (fn [living-gestures* action-args]
     (if (g-name @living-gestures*)
-      (println "didn't begin" g-name
-               ", key already found in living-gestures")
+      (println (str "didn't begin "
+                    g-name
+                    ", key already found in living-gestures"))
       (let [g-nodes (apply synth-func action-args)]
-        (println (str "playing " g-name))
+        (println (str "playing ssg " g-name))
         (swap! living-gestures*
                (fn [lgm] (assoc lgm g-name g-nodes)))))))
 
-(defn ssg-apply-curves [spec position]
+(defn ssg-apply-curves [spec]
   (fn [action curves]
-    (let [[synth-func synth-args] (ssg-gest spec position curves)
+    (let [[synth-func synth-args] (ssg-gest spec (:position action) curves)
           g-name                  (:name action)
           func                    (ssg-player g-name synth-func)]
       (assoc action :func func :args synth-args))))
@@ -220,7 +222,117 @@
       :gesture-type :ssg
       :func action-func
       :args synth-args
-      :mutator (ssg-apply-curves spec position)})))
+      :position position
+      :add-curves-fn (ssg-apply-curves spec)})))
+
+;; ________________________________________________________________
+;; :msg gesture type
+
+(defn length-of-value-collection
+  "Takes a map and finds a value that is a collection and returns its length.
+  Returns zero if no values are collections."
+  [coll]
+  (->> coll
+       vals
+       (filter coll?)
+       first
+       count))
+
+(def map-coll-values-selector (comp-paths ALL (filterer coll?) LAST))
+
+(defn resolve-child-args [args i]
+  (try
+    (compiled-transform map-coll-values-selector
+                        #(nth % i)
+                        args)
+    (catch Exception e
+      (throw
+       (Exception. (str "Synth args poorly formed: " args))))))
+
+(defn msg-player [g-name children]
+  (fn [living-gestures* _]
+    (if (g-name @living-gestures*)
+      (println (str "didn't begin " g-name
+                    ", key already found in living-gestures"))
+
+      (let [g-nodes (doall (for [child children] (child)))]
+        (println (str "playing msg " g-name))
+        (swap! living-gestures*
+               (fn [lgm] (assoc lgm g-name g-nodes)))))))
+
+(def curve-spec-attr-coll-selector
+  (comp-paths ALL :spec (filterer #(coll? (second %))) ALL LAST FIRST))
+
+(def curve-init-spec-attr-coll-selector
+  (comp-paths :spec (filterer #(-> % second coll?)) ALL LAST))
+
+(defn curves-for-child-index [curves child-index]
+  (let [init-curve (transform curve-init-spec-attr-coll-selector
+                              (fn [children-attr-vals]
+                                (nth children-attr-vals child-index))
+                              (first curves))
+        rest-curves (into []
+                          (transform curve-spec-attr-coll-selector
+                                     (fn [children-attr-vals]
+                                       (nth children-attr-vals child-index))
+                                     (rest curves)))]
+    (concat [init-curve] rest-curves)))
+
+(defn msg-children
+  ([g-name spec position] (msg-children g-name spec position []))
+  ([g-name spec position curves]
+   (if-not (:instr spec)
+     (throw (Exception. (str "no instr specified in multi-synth-gesture"
+                             " with `spec`: " spec))))
+
+   (let [instr (:instr spec)
+         synth-args (dissoc spec :instr)
+         instr-name (keyword (:name instr))
+         children-count (length-of-value-collection synth-args)
+         children-count (if (= children-count 0) 1 children-count)]
+
+     (for [child-index (range children-count)]
+       (let [child-args (resolve-child-args synth-args child-index)
+             child-args (->> child-args (into []) flatten)
+             child-args (resolve-synth-args child-args)
+             child-args (conj child-args position)
+             child-fn (if (empty? curves)
+                        instr
+                        (with-curves instr-name
+                          (curves-for-child-index
+                           curves
+                           child-index)))]
+
+         (map->Action
+          {:name (keyword (str (name g-name) "-child-" child-index))
+           :action-type :begin
+           :gesture-type :msg-child
+           :func child-fn
+           :args synth-args
+           :position position
+           :add-curves-fn (ssg-apply-curves spec)}))))))
+
+(defn msg-apply-curves [spec]
+  (fn [action curves]
+    (let [g-name   (:name action)
+          children (msg-children g-name spec (:position action) curves)
+          func     (msg-player g-name children)]
+      (assoc action :func func :args nil))))
+
+(defmethod begin :msg
+  [g-type g-name spec & remaining]
+  (let [position    (resolve-position (first remaining))
+        children    (msg-children g-name spec position)
+        action-func (msg-player g-name children)]
+
+    (map->Action
+     {:name g-name
+      :action-type :begin
+      :gesture-type :msg
+      :func action-func
+      :args nil
+      :position position
+      :add-curves-fn (msg-apply-curves spec)})))
 
 ;; ________________________________________________________________
 ;; :position gesture type
@@ -238,4 +350,4 @@
       :gesture-type :ssg
       :func action-func
       :args synth-args
-      :mutator #(throw (Exception. "can't mutate an :anon gesture"))})))
+      :add-curves-fn #(throw (Exception. "can't mutate an :anon gesture"))})))

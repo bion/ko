@@ -30,34 +30,34 @@
 (register-group "source")
 (register-group "filter" "source" :after)
 
-(defn gest-begin [name freq]
-  (begin :ssg name (assoc source-spec :freq freq) "source"))
+(defn note->hz [note]
+  (ot/midi->hz (ot/note note)))
 
-(defn gest-curve [name freq]
-  (let [freq (ot/midi->hz (ot/note freq))]
-    (curve name {:freq [freq :exp]})))
+(defn notes [& notes]
+  (map note->hz notes))
+
+(comment (defscore test-score
+           (beats-per-bar 4)
+           (beats-per-minute 108)
+
+           1 [(begin :msg :one (assoc source-spec
+                                      :freq (notes :F4 :Gb4 :Bb4 :F5 :Bb5 :F6)))
+              (begin :ssg :filt filt-spec "filter")]
+
+           1 [(curve :one {:freq [(notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5) :exp]})
+              (curve :filt {:cutoff [10000 :exp]})]
+
+           3 [(finish :one)]))
 
 (defscore test-score
   (beats-per-bar 4)
   (beats-per-minute 108)
 
-  1 [
-     (gest-begin :one :F4)
-     (gest-begin :two :Gb4)
-     (gest-begin :thr :Bb4)
-     (gest-begin :fou :F5)
-     (gest-begin :fiv :Bb5)
-     (gest-begin :six :F6)
-     (begin :ssg :filt filt-spec "filter")]
+  1 [(begin :msg :one (assoc source-spec :freq (note->hz :F4) :bus 0))]
 
-  1 [(gest-curve :one :F3)
-     (gest-curve :two :Gb3)
-     (gest-curve :thr :Bb3)
-     (gest-curve :fou :F4)
-     (gest-curve :fiv :Bb4)
-     (gest-curve :six :F5)
-     (curve :filt {:cutoff [10000 :exp]})]
-  3 [(finish :one :two :thr :fou :fiv :six :filt)])
+  (silent)
+
+  1 [(finish :one)])
 
 (play-score test-score)
 (stop-score test-score)
