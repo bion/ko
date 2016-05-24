@@ -81,7 +81,7 @@
          curves-acc curves]
     (let [quant                   (first remaining-score)
           ;; eval the actions
-          actions                 (map eval (second remaining-score))
+          actions                 (->> remaining-score second (map eval) flatten)
           {:keys [basic-scheduled-actions
                   curve-actions
                   begin-actions]} (group-actions-by-type actions)
