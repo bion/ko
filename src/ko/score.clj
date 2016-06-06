@@ -256,7 +256,7 @@
         (reduce (fn [updated-score [g-name g-curve-list]]
                   (let [{:keys [measure quant]} (first g-curve-list)]
                     (update-in
-                     score
+                     updated-score
                      [(dec measure) quant]
                      (fn [actions]
                        (vec
