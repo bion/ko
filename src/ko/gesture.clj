@@ -155,6 +155,7 @@
   (map->Action
    {:name g-name
     :action-type :curve
+    :gesture-type :ssg-msg
     :func #(throw (Exception. "Curve actions cannot be invoked"))
     :args g-spec}))
 
@@ -166,6 +167,7 @@
                       (doseq [node (map @living-gestures* action-g-names)]
                         (ot/kill node))
                       (remove-from-atom-map living-gestures* action-g-names))]
+
     (map->Action
      {:name (apply str g-names)
       :action-type :finish
@@ -183,6 +185,7 @@
      (if-not instr
        (throw (Exception. (str "no instr specified in single-synth gesture"
                                " with `spec`: " spec))))
+
      (let [instr-name (keyword (:name instr))
            synth-args (flatten (into [] (dissoc spec :instr)))
            synth-args (resolve-synth-args synth-args)
@@ -249,13 +252,18 @@
       (throw
        (Exception. (str "Synth args poorly formed: " args))))))
 
+(defn play-msg-child [{:keys [func args]}]
+  (apply func args))
+
 (defn msg-player [g-name children]
   (fn [living-gestures* _]
     (if (g-name @living-gestures*)
       (println (str "didn't begin " g-name
                     ", key already found in living-gestures"))
 
-      (let [g-nodes (doall (for [child children] (child)))]
+      (let [g-nodes (doall
+                     (for [child children]
+                       (play-msg-child child)))]
         (println (str "playing msg " g-name))
         (swap! living-gestures*
                (fn [lgm] (assoc lgm g-name g-nodes)))))))
@@ -291,24 +299,23 @@
          children-count (length-of-value-collection synth-args)
          children-count (if (= children-count 0) 1 children-count)]
 
-     (for [child-index (range children-count)]
-       (let [child-args (resolve-child-args synth-args child-index)
-             child-args (->> child-args (into []) flatten)
-             child-args (resolve-synth-args child-args)
-             child-args (conj child-args position)
-             child-fn (if (empty? curves)
-                        instr
-                        (with-curves instr-name
-                          (curves-for-child-index
-                           curves
-                           child-index)))]
+     (doall
+      (for [child-index (range children-count)]
+        (let [child-args (resolve-child-args synth-args child-index)
+              child-args (->> child-args (into []) flatten)
+              child-args (resolve-synth-args child-args)
+              child-args (conj child-args position)
+              child-fn (if (empty? curves)
+                         instr
+                         (with-curves instr-name
+                           (curves-for-child-index curves child-index)
+                           synth-templates*))]
 
-         (map->Action
           {:name (keyword (str (name g-name) "-child-" child-index))
            :action-type :begin
            :gesture-type :msg-child
            :func child-fn
-           :args synth-args
+           :args child-args
            :position position
            :add-curves-fn (ssg-apply-curves spec)}))))))
 
@@ -317,7 +324,7 @@
     (let [g-name   (:name action)
           children (msg-children g-name spec (:position action) curves)
           func     (msg-player g-name children)]
-      (assoc action :func func :args nil))))
+      (assoc action :func func))))
 
 (defmethod begin :msg
   [g-type g-name spec & remaining]
@@ -330,7 +337,7 @@
       :action-type :begin
       :gesture-type :msg
       :func action-func
-      :args nil
+      :args (conj (apply concat (into [] (dissoc spec :instr))) position) ;; lol
       :position position
       :add-curves-fn (msg-apply-curves spec)})))
 

@@ -15,7 +15,8 @@
 
 (ko-defsynth test-filter
              [in-bus 8 out-bus 0 cutoff 440]
-             (ot/out out-bus (ot/lpf (ot/in in-bus) cutoff)))
+             (let [sig (ot/in in-bus)]
+               (ot/out out-bus (ot/lpf sig cutoff))))
 
 (def source-spec {:instr test-synth
                   :freq 220
@@ -36,32 +37,22 @@
 (defn notes [& notes]
   (map note->hz notes))
 
-(comment (defscore test-score
-           (beats-per-bar 4)
-           (beats-per-minute 108)
-
-           1 [(begin :msg :one (assoc source-spec
-                                      :freq (notes :F4 :Gb4 :Bb4 :F5 :Bb5 :F6)))
-              (begin :ssg :filt filt-spec "filter")]
-
-           1 [(curve :one {:freq [(notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5) :exp]})
-              (curve :filt {:cutoff [10000 :exp]})]
-
-           3 [(finish :one)]))
-
 (defscore test-score
   (beats-per-bar 4)
   (beats-per-minute 108)
 
-  1 [(begin :msg :one (assoc source-spec :freq (note->hz :F4) :bus 0))]
+  1 [(begin :ssg :filt filt-spec "filter")
+     (begin :msg :one (assoc source-spec
+                             :freq (notes :F4 :Gb4 :Bb4 :F5 :Bb5 :F6))
+            "source")]
 
-  (silent)
+  1 [(curve :one {:freq [(notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5) :exp]})
+     (curve :filt {:cutoff [10000 :exp]})]
+  3 [(finish :one :filt)])
 
-  1 [(finish :one)])
-
+test-score
 (play-score test-score)
 (stop-score test-score)
-
 (ot/pp-node-tree)
 
 (clojure.pprint/pprint test-score)

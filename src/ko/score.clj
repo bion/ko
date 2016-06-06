@@ -42,12 +42,12 @@
                                    :measure measure-num
                                    :quant quant
                                    :spec g-spec}
-                    gesture (curves g-name)]
+                    gesture (memo g-name)]
                 (if-not gesture
                   (throw (Exception.
                           (str "No gesture found for curve: "
                                g-name))))
-                (update-in curves [g-name] conj action-record)))
+                (update-in memo [g-name] conj action-record)))
             curves
             curves-actions)))
 
@@ -75,7 +75,8 @@
   (let [metadata {:beat-dur (beat-dur beats-per-minute) :beats-per-bar beats-per-bar}]
     (conj score (with-meta measure metadata))))
 
-(defn extract-measure [score measure-num curves measure-timestamp beats-per-minute beats-per-bar]
+(defn extract-measure [score measure-num curves measure-timestamp
+                       beats-per-minute beats-per-bar]
   (loop [measure {}
          remaining-score score
          curves-acc curves]
