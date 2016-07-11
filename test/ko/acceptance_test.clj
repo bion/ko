@@ -26,13 +26,13 @@
 (def filt-spec {:instr test-filter
                 :in-bus "test-bus"
                 :out-bus 0
-                :cutoff 200})
+                :cutoff 1000})
 
 (register-group "source")
 (register-group "filter" "source" :after)
 
-(defn note->hz [note]
-  (ot/midi->hz (ot/note note)))
+(defn note->hz [note-name]
+  (ot/midi->hz (ot/note note-name)))
 
 (defn notes [& notes]
   (map note->hz notes))
@@ -43,12 +43,13 @@
 
   1 [(begin :ssg :filt filt-spec "filter")
      (begin :msg :one (assoc source-spec
-                             :freq (notes :F4 :Gb4 :Bb4 :F5 :Bb5 :F6))
+                             :freq (notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5))
             "source")]
 
-  1 [(curve :one {:freq [(notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5) :exp]})
-     (curve :filt {:cutoff [10000 :exp]})]
-  3 [(finish :one :filt)])
+  1 [(curve :one {:freq [(notes :F4 :Gb4 :Bb4 :F5 :Bb5 :F6) :exp]})]
+  2 [(curve :one {:freq [(notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5) :exp]})]
+  3 [(curve :filt {:cutoff [10000 :exp]})
+     (finish :one :filt)])
 
 test-score
 (play-score test-score)
