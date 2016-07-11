@@ -352,7 +352,7 @@
                                   (apply synth-func action-args))]
 
     (map->Action
-     {:name (str "anon-" (gensym))
+     {:name (keyword (str "anon-" (gensym)))
       :action-type :begin
       :gesture-type :ssg
       :func action-func
