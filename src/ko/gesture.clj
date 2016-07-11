@@ -342,7 +342,7 @@
       :add-curves-fn (msg-apply-curves spec)})))
 
 ;; ________________________________________________________________
-;; :position gesture type
+;; :anon gesture type
 
 (defmethod begin :anon
   [g-type spec & remaining]

@@ -204,7 +204,7 @@
   ([label-name should-jump?]
    (partial jump-to-label should-jump?)))
 
-(defn silent []
+(defn silent-measure []
   extract-silent-measure)
 
 (defn beats-per-bar [bpb]
@@ -323,12 +323,12 @@
   Aside from specifying gestures, the defscore macro provides for setting
   the time signature:
 
-  beats-per-bar 4
-  beats-per-minute 80
+  (beats-per-bar 4)
+  (beats-per-minute 80)
 
   and specifying a no actions take place in a measure:
 
-  silent"
+  (silent)"
   [score-name & input-score]
   (if (empty? input-score)
     []
