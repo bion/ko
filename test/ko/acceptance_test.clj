@@ -41,6 +41,7 @@
   (beats-per-bar 4)
   (beats-per-minute 108)
 
+  (label :beginning)
   1 [(begin :ssg :filt filt-spec "filter")
      (begin :msg :one (assoc source-spec
                              :freq (notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5))
@@ -48,10 +49,22 @@
 
   1 [(curve :one {:freq [(notes :F4 :Gb4 :Bb4 :F5 :Bb5 :F6) :exp]})]
   2 [(curve :one {:freq [(notes :F3 :Gb3 :Bb3 :F4 :Bb4 :F5) :exp]})]
-  3 [(curve :filt {:cutoff [10000 :exp]})
-     (finish :one :filt)])
 
-test-score
+  4.99 [(curve :filt {:cutoff [10000 :exp]})
+        (finish :one :filt)]
+  (jump :beginning)
+
+  1 [(begin :msg :two (assoc source-spec
+                             :freq (notes :C3 :F3 :G3)
+                             :bus 0))]
+
+  (silent-measure)
+
+  1 [(finish :two)])
+
+(meta test-score)
+(count test-score)
+
 (play-score test-score)
 (stop-score test-score)
 (ot/pp-node-tree)
