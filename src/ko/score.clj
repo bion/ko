@@ -135,12 +135,10 @@
                                           beats-per-minute
                                           beats-per-bar)
 
-        next-expanded-score (if (empty? next-measure)
-                              expanded-score
-                              (add-measure-to-score expanded-score
-                                                    next-measure
-                                                    (:beats-per-minute parse-state)
-                                                    (:beats-per-bar parse-state)))]
+        next-expanded-score (add-measure-to-score expanded-score
+                                                  next-measure
+                                                  (:beats-per-minute parse-state)
+                                                  (:beats-per-bar parse-state))]
 
     (merge parse-state {:expanded-score next-expanded-score
                         :score next-score
