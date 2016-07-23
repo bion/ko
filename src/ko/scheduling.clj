@@ -27,11 +27,11 @@
 (defn resolve-next-index [score index]
   (let [next-index             (inc index)
         {:keys [labels jumps]} (meta score)
-        jump                   (get jumps next-index)]
+        jump                   (get jumps (inc next-index))]
 
     (if jump
       (let [{:keys [label should-jump?]} jump]
-        (if (should-jump?) (labels label) next-index))
+        (if (should-jump?) (dec (labels label)) next-index))
       next-index)))
 
 (defn- schedule-cycle

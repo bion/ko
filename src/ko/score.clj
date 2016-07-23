@@ -93,7 +93,9 @@
                                     measure
                                     (assoc measure quant (into [] scheduled-actions)))
 
-          quant-timestamp         (+ measure-timestamp (quant->duration quant beats-per-minute))
+          quant-timestamp         (+ measure-timestamp (quant->duration
+                                                        quant
+                                                        beats-per-minute))
           next-curves             (record-begin-actions measure-num
                                                         quant
                                                         begin-actions
@@ -105,16 +107,16 @@
                                                  next-curves
                                                  quant-timestamp)]
 
-      (cond
-        (and (number? next-item-in-score) (< quant next-item-in-score))
+
+      (if (and (number? next-item-in-score) (< quant next-item-in-score))
         (recur next-measure next-remaining-score next-curves)
 
-        :else [next-measure
-               next-remaining-score
-               next-curves
-               (inc-measure-timestamp measure-timestamp
-                                      beats-per-minute
-                                      beats-per-bar)]))))
+        [next-measure
+         next-remaining-score
+         next-curves
+         (inc-measure-timestamp measure-timestamp
+                                beats-per-minute
+                                beats-per-bar)]))))
 
 (defn- set-key [key new-val parse-state]
   (let [score (:score parse-state)
@@ -170,21 +172,18 @@
   (let [{:keys [score measure-num]} parse-state
         next-score (rest score)
         next-jump-data (update-in (:jump-data parse-state) [:labels]
-                                  ;; dec measure-num to get index
-                                  #(assoc % label (dec measure-num)))]
+                                  #(assoc % label measure-num))]
 
     (assoc parse-state :score next-score :jump-data next-jump-data)))
 
 (defn jump-to-label
-  [should-jump? parse-state]
+  [should-jump? label-name parse-state]
   (let [{:keys [score measure-num]} parse-state
-        next-score (-> score rest rest)
-        label (second score)
-        jump {:label label
+        next-score (rest score)
+        jump {:label label-name
               :should-jump? should-jump?}
         next-jump-data (update-in (:jump-data parse-state) [:jumps]
-                                  ;; dec measure-num to get index
-                                  #(assoc % (dec measure-num) jump))]
+                                  #(assoc % measure-num jump))]
 
     (assoc parse-state :score next-score :jump-data next-jump-data)))
 
@@ -200,7 +199,7 @@
 (defn jump
   ([label-name] (jump label-name (true-for-n 1)))
   ([label-name should-jump?]
-   (partial jump-to-label should-jump?)))
+   (partial jump-to-label should-jump? label-name)))
 
 (defn silent-measure []
   extract-silent-measure)
@@ -326,7 +325,7 @@
 
   and specifying a no actions take place in a measure:
 
-  (silent)"
+  (silent-measure)"
   [score-name & input-score]
   (if (empty? input-score)
     []
