@@ -17,9 +17,6 @@
              (re-matches #".*-bus$" arg))
         (or (@busses* arg) (add-bus arg))
 
-        (>= 0 arg)
-        (ot/db->amp arg)
-
         :default
         arg))
 
