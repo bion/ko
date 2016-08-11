@@ -36,7 +36,8 @@
     `(do
        (ot/defsynth ~s-name ~args ~body)
        (swap! synth-templates*
-              #(assoc % ~kword-s-name '(~args ~body))))))
+              #(assoc % ~kword-s-name '(~args ~body)))
+       nil)))
 
 (defn- default-group []
   (ot/foundation-default-group))
