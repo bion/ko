@@ -1,6 +1,7 @@
 (ns ko.curve
-  [:use [ko.synth-args]]
-  [:require [overtone.core :as ot]])
+  [:use
+   [ko.synth-args]
+   [overtone.core]])
 
 (def keyword->symbol #(symbol (str (name %))))
 
@@ -8,7 +9,7 @@
   (keyword (name item)))
 
 (defn define-synth [s-name params ugen-form]
-  (eval `(ot/synth ~s-name ~params ~ugen-form)))
+  (eval `(synth ~s-name ~params ~ugen-form)))
 
 (defn remove-param [param-list removed-param-names]
   (let [param-map (apply hash-map param-list)
@@ -44,7 +45,7 @@
         (let [[levels durs curves] (map persistent! [levels durs curves])
               levels (map resolve-synth-arg levels)]
           {:param-name param
-           :envelope (ot/envelope levels durs curves)})
+           :envelope (envelope levels durs curves)})
 
         ;; keep recurring
         (let [snapshot (first remaining-snapshots)
@@ -57,7 +58,7 @@
           (recur (rest remaining-snapshots) timestamp))))))
 
 (defn- get-param-keys [g-events]
-  (remove #{:instr} (->> g-events first :spec keys)))
+  (remove #{:instr} (->> g-events first :spec (into {}) keys)))
 
 (defn curves->envelopes
   "converts a vector of gesture states into a vector of hashes
@@ -78,7 +79,7 @@
          (vec
           (map #(vec
                  [(keyword->symbol (:param-name %))
-                  (conj () (:envelope %) 'ot/env-gen)])
+                  (conj () (:envelope %) 'env-gen)])
                envelopes))))
 
 (defn apply-curves
@@ -101,5 +102,5 @@
 
     (let [s-name (symbol (str (name instr-name) "-" (gensym)))
           s-template (apply-curves s-template curves)
-          [s-name params ugen-form] (ot/synth-form s-name s-template)]
+          [s-name params ugen-form] (synth-form s-name s-template)]
       (define-synth s-name params ugen-form))))
