@@ -2,6 +2,7 @@
   [:require [overtone.core :as ot]]
   [:use [ko.curve]
    [com.rpl.specter]
+   [com.rpl.specter.macros]
    [ko.synth-args]
    [overtone.sc.machinery.server.comms :refer [with-server-sync]]])
 
@@ -28,11 +29,22 @@
          (fn [atom-map-val]
            (apply dissoc (into [atom-map-val] k)))))
 
+(defn resolve-cgens [body]
+  (clojure.walk/postwalk
+   (fn [value]
+     (if
+         (and (= clojure.lang.Symbol (type value))
+              (.contains (str value) ":"))
+       (resolve value)
+       value))
+   body))
+
 (defmacro ko-defsynth
   "Define an overtone synth as per usual, but also store the
   params andbody of the synth in `synth-templates*`"
   [s-name args body]
-  (let [kword-s-name (keyword s-name)]
+  (let [kword-s-name (keyword s-name)
+        body (resolve-cgens body)]
     `(do
        (ot/defsynth ~s-name ~args ~body)
        (swap! synth-templates*
