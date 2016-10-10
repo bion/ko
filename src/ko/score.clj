@@ -53,8 +53,10 @@
 
 (defn group-actions-by-type [actions]
   (group-by (fn [action]
-              (let [action-type (:action-type action)]
-                (if-not (.contains [:begin :curve :alter :finish] action-type)
+              (let [action-type (if (fn? action)
+                                  :function
+                                  (:action-type action))]
+                (if-not (.contains [:begin :curve :alter :finish :function] action-type)
                   (throw (Exception.
                           (str "Unrecognized action " (with-out-str (prn action))))))
                 (cond (= :begin action-type) :begin-actions
