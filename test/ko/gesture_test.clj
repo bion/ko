@@ -17,8 +17,10 @@
 (deftest curves-for-child-index-test
   (let [curves [{:measure 1 :quant 1 :timestamp 1.12 :spec {:freq '(1 2) :amp 1}}
                 {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq ['(1 2) :exp]}}
-                {:measure 3 :quant 2 :timestamp 2.12 :spec {:freq ['(3 4) :exp]}}]]
+                {:measure 3 :quant 2 :timestamp 2.12 :spec {:freq ['(3 4) :exp]}}
+                {:measure 3 :quant 2 :timestamp 2.12 :spec {:amp [2 :exp]}}]]
     (is (= (curves-for-child-index curves 0)
-           [{:measure 1 :quant 1 :timestamp 1.12 :spec {:freq 1 :amp 1}}
-            {:measure 2 :quant 2.5 :timestamp 23.123 :spec {:freq [1 :exp]}}
-            {:measure 3 :quant 2 :timestamp 2.12 :spec {:freq [3 :exp]}}]))))
+           [{:measure 1 :quant 1 :timestamp 1.12 :spec [[:freq 1] [:amp 1]]}
+            {:measure 2 :quant 2.5 :timestamp 23.123 :spec [[:freq [1 :exp]]]}
+            {:measure 3 :quant 2 :timestamp 2.12 :spec [[:freq [3 :exp]]]}
+            {:measure 3, :quant 2, :timestamp 2.12, :spec [[:amp [2 :exp]]]}]))))

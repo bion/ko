@@ -295,7 +295,9 @@
         rest-curves (into []
                           (transform curve-spec-attr-coll-selector
                                      (fn [children-attr-vals]
-                                       (nth children-attr-vals child-index))
+                                       (if (coll? children-attr-vals)
+                                         (nth children-attr-vals child-index)
+                                         children-attr-vals))
                                      (rest curves)))]
     (concat [init-curve] rest-curves)))
 
