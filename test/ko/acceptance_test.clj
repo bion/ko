@@ -25,7 +25,7 @@
 (def source-spec
   {:instr test-synth
    :freq 220
-   :amp -20
+   :amp (db->amp -40)
    :bus "test-bus"})
 
 (def filt-spec
