@@ -2,7 +2,6 @@
   [:require [overtone.core :as ot]]
   [:use [ko.curve]
    [com.rpl.specter]
-   [com.rpl.specter.macros]
    [ko.synth-args]
    [overtone.sc.machinery.server.comms :refer [with-server-sync]]])
 
