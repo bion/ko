@@ -51,9 +51,9 @@
         (let [snapshot (first remaining-snapshots)
               _ (if-not (coll? (->> snapshot :spec param))
                   (throw (Exception.
-                          (str "synth params for `curve` actions be a tuple "
-                               "containing the new value and a curve. "
-                               "instead param " param " is: "
+                          (str "synth params for `curve` actions must "
+                               "be a tuple containing the new value and "
+                               "a curve. instead param " param " is: "
                                (->> snapshot :spec param)))))
               [level curve] (->> snapshot :spec param)
               timestamp (:timestamp snapshot)
