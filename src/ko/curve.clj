@@ -99,14 +99,19 @@
         new-template (conj () new-ugen-forms param-list)]
     new-template))
 
+(def with-curves-implementation
+  (memoize
+   (fn [instr-name curves templates*]
+     (let [s-template (instr-name @templates*)]
+       (if-not s-template
+         (throw (Exception. (str "no synth template found for: " instr-name))))
+
+       (let [s-name (symbol (str (name instr-name) "-" (gensym)))
+             s-template (apply-curves s-template curves)
+             [s-name params ugen-form] (synth-form s-name s-template)]
+         (define-synth s-name params ugen-form))))))
+
 (defn with-curves
   "Returns a function that plays the given synth with curves applied"
   [instr-name curves templates*]
-  (let [s-template (instr-name @templates*)]
-    (if-not s-template
-      (throw (Exception. (str "no synth template found for: " instr-name))))
-
-    (let [s-name (symbol (str (name instr-name) "-" (gensym)))
-          s-template (apply-curves s-template curves)
-          [s-name params ugen-form] (synth-form s-name s-template)]
-      (define-synth s-name params ugen-form))))
+  (with-curves-implementation instr-name curves templates*))
