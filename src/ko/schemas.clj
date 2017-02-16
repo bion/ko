@@ -5,6 +5,7 @@
   "A schema for the parse-state entity `ko.score/parse-score`"
   {(s/required-key :beats-per-minute) s/Num
    (s/required-key :beats-per-bar) s/Num
+   (s/required-key :metronome) s/Bool
    (s/required-key :jump-data) {(s/required-key :labels) s/Any
 
                                 (s/required-key :jumps)

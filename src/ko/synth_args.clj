@@ -4,7 +4,7 @@
 (defonce busses* (atom {}))
 
 (defn add-bus [bus-name]
-  (let [new-bus (ot/audio-bus)]
+  (let [new-bus (ot/audio-bus 2)]
     (swap! busses*
            #(assoc % bus-name new-bus))
     new-bus))

@@ -22,7 +22,10 @@
   (doseq [[quant actions] measure]
     (let [timestamp (quant-to-timestamp quant next-bar-timestamp beat-dur)]
       (ot/at timestamp
-             (doseq [action actions] (action living-gestures))))))
+             (doseq [action actions]
+               (if (= (type action) ko.gesture.Action)
+                 (action living-gestures)
+                 (action)))))))
 
 (defn resolve-next-index [score index]
   (let [next-index             (inc index)

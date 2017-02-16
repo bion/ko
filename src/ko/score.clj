@@ -1,7 +1,8 @@
 (ns ko.score
   (:use ko.gesture
         ko.schemas)
-  (:require [schema.core :as s]))
+  (:require [schema.core :as s]
+            [ko.metronome :as ko-nome]))
 
 (defn gesture-record
   "begin action must specify inital state for all curves
@@ -77,17 +78,20 @@
   (let [metadata {:beat-dur (beat-dur beats-per-minute) :beats-per-bar beats-per-bar}]
     (conj score (with-meta measure metadata))))
 
-(defn extract-measure [score measure-num curves measure-timestamp
-                       beats-per-minute beats-per-bar]
+(defn extract-measure [{:keys [score measure-num curves timestamp
+                               beats-per-minute beats-per-bar]}]
   (loop [measure {}
          remaining-score score
          curves-acc curves]
-    (let [quant                   (first remaining-score)
+
+    (let [measure-timestamp       timestamp
+          quant                   (first remaining-score)
           ;; eval the actions
           actions                 (->> remaining-score second (map eval) flatten)
           {:keys [basic-scheduled-actions
                   curve-actions
                   begin-actions]} (group-actions-by-type actions)
+
           scheduled-actions       (apply conj basic-scheduled-actions begin-actions)
           next-remaining-score    (-> remaining-score rest rest)
           next-item-in-score      (first next-remaining-score)
@@ -109,7 +113,6 @@
                                                  next-curves
                                                  quant-timestamp)]
 
-
       (if (and (number? next-item-in-score) (< quant next-item-in-score))
         (recur next-measure next-remaining-score next-curves)
 
@@ -127,17 +130,11 @@
 
 (defn extract-normal-measure
   [parse-state]
-  (let [{:keys [expanded-score score measure-num curves
-                timestamp beats-per-minute beats-per-bar]} parse-state
+  (let [{:keys [expanded-score measure-num]} parse-state
         [next-measure
          next-score
          next-curves
-         next-timestamp] (extract-measure score
-                                          measure-num
-                                          curves
-                                          timestamp
-                                          beats-per-minute
-                                          beats-per-bar)
+         next-timestamp] (extract-measure parse-state)
 
         next-expanded-score (add-measure-to-score expanded-score
                                                   next-measure
@@ -212,6 +209,10 @@
 (defn beats-per-minute [bpm]
   (partial set-key :beats-per-minute bpm))
 
+(defn start-metronome
+  ([] (start-metronome true))
+  ([bool] (partial set-key :metronome bool)))
+
 (defn resolve-handler [score measure-num]
   (let [next-token (first score)
         handler (if (number? next-token)
@@ -226,6 +227,7 @@
 (defn parse-score [input-score]
   (let [initial {:beats-per-minute 60
                  :beats-per-bar 4
+                 :metronome false
                  :jump-data {:labels {} :jumps {}}
                  :expanded-score []
                  :curves {}

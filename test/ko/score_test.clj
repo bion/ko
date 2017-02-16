@@ -12,7 +12,7 @@
              [arg 1 arg-2 2]
              (ot/out 0 (ot/sin-osc:ar 220)))
 
-(def test-parsed-score
+ (def test-parsed-score
   [{1 [(begin :ssg :my-gesture-name {:instr test-synth, :freq 200})
        (begin :ssg :other-gesture-name {:instr test-synth, :freq 400})]}])
 
@@ -47,7 +47,7 @@
            1 [(begin :ssg :my-gesture-name {:instr test-synth :freq 200})
               (begin :ssg :other-gesture-name {:instr test-synth :freq 400})]
 
-           (jump-to :one)
+           (jump :one)
 
            3 [(curve :my-gesture-name {:freq [220 :exp] :amp [0.1 :exp]})]))
 

@@ -44,6 +44,7 @@
   (map note->hz notes))
 
 (defscore test-score
+  (start-metronome)
   (beats-per-bar 4)
   (beats-per-minute 108)
 
